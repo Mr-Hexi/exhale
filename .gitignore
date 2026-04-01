@@ -24,3 +24,11 @@ frontend/.env
 # OS
 .DS_Store
 Thumbs.db
+
+# cmds
+commands.txt    
+
+# frontend
+node_modules/
+dist/
+.env
