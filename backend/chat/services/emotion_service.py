@@ -1,19 +1,14 @@
-import os
 import logging
-from groq import Groq
+from services.llm_client import get_completion
 from emotion.ml.predict import predict
 from emotion.exceptions import MLModelError, EmotionClassificationError
 from chat.exceptions import GroqAPIError
-from prompts.v1 import EMOTION_CLASSIFY_PROMPT          # ← changed
+from prompts.v1 import EMOTION_CLASSIFY_PROMPT, CRISIS_SYSTEM_PROMPT
 
 logger = logging.getLogger("exhale")
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-
 CONFIDENCE_THRESHOLD = 0.70
 ALLOWED_LABELS = {"happy", "sad", "anxious", "angry"}
-
-# EMOTION_CLASSIFY_PROMPT now lives in prompts/v1.py — do not redefine here
 
 CRISIS_KEYWORDS = [
     "end it all", "kill myself", "want to die", "no reason to live",
@@ -21,7 +16,7 @@ CRISIS_KEYWORDS = [
     "hurt myself", "self harm", "worthless", "give up on life"
 ]
 
-CRISIS_RESPONSE = {
+CRISIS_RESPONSE_FALLBACK = {
     "is_crisis": True,
     "emotion": "sad",
     "emotion_confidence": 1.0,
@@ -42,42 +37,65 @@ def check_crisis(text: str) -> bool:
     return any(kw in text_lower for kw in CRISIS_KEYWORDS)
 
 
-def _groq_classify(text: str) -> str:
+def _llm_crisis_response(text: str) -> str:
     try:
-        response = client.chat.completions.create(
-            model="llama3-8b-8192",
+        return get_completion(
+            messages=[
+                {"role": "system", "content": CRISIS_SYSTEM_PROMPT},
+                {"role": "user", "content": text},
+            ],
+            max_tokens=300,
+            temperature=0.7,
+        )
+    except Exception as e:
+        logger.error("LLM crisis response failed: %s", str(e))
+        raise GroqAPIError(f"LLM crisis call failed: {str(e)}")
+
+
+def _llm_classify(text: str) -> str:
+    try:
+        result = get_completion(
             messages=[{
                 "role": "user",
-                "content": EMOTION_CLASSIFY_PROMPT.format(text=text)
+                "content": EMOTION_CLASSIFY_PROMPT.format(text=text),
             }],
             max_tokens=10,
             temperature=0.0,
-        )
-        result = response.choices[0].message.content.strip().lower()
+        ).lower()
 
         if result not in ALLOWED_LABELS:
             raise EmotionClassificationError(
-                f"Groq returned unexpected label: '{result}'"
+                f"LLM returned unexpected label: '{result}'"
             )
 
-        logger.info("Groq fallback classification: %s", result)
+        logger.info("LLM fallback classification: %s", result)
         return result
 
     except EmotionClassificationError:
         raise
     except Exception as e:
-        logger.error("Groq emotion classification failed: %s", str(e))
-        raise GroqAPIError(f"Groq call failed: {str(e)}")
+        logger.error("LLM emotion classification failed: %s", str(e))
+        raise GroqAPIError(f"LLM call failed: {str(e)}")
 
 
 def classify_emotion(text: str) -> dict:
     """
-    Full pipeline: crisis check → ML model → Groq fallback.
-    Returns: { emotion, emotion_confidence, is_crisis }
+    Full pipeline: crisis check → ML model → LLM fallback.
+    Returns: { emotion, emotion_confidence, is_crisis, message (crisis only) }
     """
     if check_crisis(text):
         logger.warning("Crisis keyword detected in message")
-        return CRISIS_RESPONSE
+        try:
+            message = _llm_crisis_response(text)
+            return {
+                "is_crisis": True,
+                "emotion": "sad",
+                "emotion_confidence": 1.0,
+                "message": message,
+            }
+        except GroqAPIError:
+            logger.warning("LLM unavailable during crisis — using fallback response")
+            return CRISIS_RESPONSE_FALLBACK
 
     try:
         result = predict(text)
@@ -94,11 +112,11 @@ def classify_emotion(text: str) -> dict:
             }
 
         logger.warning(
-            "ML confidence low (%.2f), falling back to Groq", confidence
+            "ML confidence low (%.2f), falling back to LLM", confidence
         )
-        groq_emotion = _groq_classify(text)
+        llm_emotion = _llm_classify(text)
         return {
-            "emotion": groq_emotion,
+            "emotion": llm_emotion,
             "emotion_confidence": confidence,
             "is_crisis": False,
         }
