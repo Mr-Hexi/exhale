@@ -1,0 +1,187 @@
+﻿{
+  "info": {
+    "_postman_id": "9e9b0e66-3359-4dd5-a4ca-ccf738cb6c2f",
+    "name": "Exhale Emotion API",
+    "description": "Dedicated Postman collection for Emotion app endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Auth Helper",
+      "item": [
+        {
+          "name": "Login (Get JWT)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login",
+                ""
+              ]
+            },
+            "description": "Run this first to populate accessToken and refreshToken in your environment."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const data = pm.response.json();",
+                  "if (data.access) pm.environment.set('accessToken', data.access);",
+                  "if (data.refresh) pm.environment.set('refreshToken', data.refresh);",
+                  "",
+                  "pm.test('Tokens returned', function () {",
+                  "  pm.expect(data).to.have.property('access');",
+                  "  pm.expect(data).to.have.property('refresh');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Emotion",
+      "item": [
+        {
+          "name": "Detect Emotion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"I am a bit stressed but hopeful about tomorrow.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/emotion/detect/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "emotion",
+                "detect",
+                ""
+              ]
+            },
+            "description": "Returns emotion classification for raw text. Requires Bearer token."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const data = pm.response.json();",
+                  "pm.test('Response has expected fields', function () {",
+                  "  pm.expect(data).to.have.property('emotion');",
+                  "  pm.expect(data).to.have.property('confidence');",
+                  "  pm.expect(data).to.have.property('is_crisis');",
+                  "});",
+                  "",
+                  "pm.test('Emotion is valid class', function () {",
+                  "  pm.expect(['happy', 'sad', 'anxious', 'angry']).to.include(data.emotion);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Emotion Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/emotion/summary/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "emotion",
+                "summary",
+                ""
+              ]
+            },
+            "description": "Returns per-emotion message counts for the authenticated user."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const data = pm.response.json();",
+                  "pm.test('Summary contains all 4 keys', function () {",
+                  "  pm.expect(data).to.have.property('happy');",
+                  "  pm.expect(data).to.have.property('sad');",
+                  "  pm.expect(data).to.have.property('anxious');",
+                  "  pm.expect(data).to.have.property('angry');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:8000"
+    }
+  ]
+}

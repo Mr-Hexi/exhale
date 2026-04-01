@@ -1,0 +1,75 @@
+﻿{
+  "info": {
+    "_postman_id": "8a8f8cb6-7d42-46e6-a188-7b29fd5cc3ee",
+    "name": "Exhale Emotion Quick Test",
+    "description": "Quick test collection for /api/emotion/detect/ and /api/emotion/summary/",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Detect Emotion (Quick)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"I am so anxious about my presentation tomorrow\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/emotion/detect/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "emotion",
+            "detect",
+            ""
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Emotion Summary (Quick)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/emotion/summary/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "emotion",
+            "summary",
+            ""
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000"
+    }
+  ]
+}

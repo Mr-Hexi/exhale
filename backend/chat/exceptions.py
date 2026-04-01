@@ -1,0 +1,2 @@
+class GroqAPIError(Exception):
+    pass
