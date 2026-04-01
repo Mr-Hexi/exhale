@@ -1,0 +1,26 @@
+claude.md
+context.md
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+*.egg-info/
+
+# Django
+backend/.env
+backend/logs/*.log
+backend/emotion/ml/model.pkl
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
