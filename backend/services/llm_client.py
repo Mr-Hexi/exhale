@@ -9,9 +9,9 @@ PROVIDER_CONFIGS = {
         "base_url": "https://openrouter.ai/api/v1",
         "api_key_env": "OPENROUTER_API_KEY",
     },
-    "groq": {
-        "base_url": "https://api.groq.com/openai/v1",
-        "api_key_env": "GROQ_API_KEY",
+    "llmapi": {
+        "base_url": "https://api.llmapi.com",
+        "api_key_env": "LLMAPI_API_KEY",
     },
     "gemini": {
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",

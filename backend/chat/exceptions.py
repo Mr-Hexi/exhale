@@ -1,2 +1,2 @@
-class GroqAPIError(Exception):
+class LLMAPIError(Exception):
     pass

@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
 from chat.services.emotion_service import classify_emotion
-from chat.exceptions import GroqAPIError
+from chat.exceptions import LLMAPIError
 from emotion.serializers import DetectEmotionSerializer
 from emotion.exceptions import MLModelError, EmotionClassificationError
 
@@ -29,8 +29,8 @@ class DetectEmotionView(APIView):
                 "is_crisis": result.get("is_crisis", False),
             }, status=200)
 
-        except GroqAPIError as e:
-            logger.error("Groq failed in DetectEmotionView for user %s: %s",
+        except LLMAPIError as e:
+            logger.error("LLMAPI failed in DetectEmotionView for user %s: %s",
                          request.user.id, str(e))
             return Response(
                 {"error": "AI service temporarily unavailable."}, status=503

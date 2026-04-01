@@ -2,7 +2,7 @@ import logging
 from services.llm_client import get_completion
 from emotion.ml.predict import predict
 from emotion.exceptions import MLModelError, EmotionClassificationError
-from chat.exceptions import GroqAPIError
+from chat.exceptions import LLMAPIError
 from prompts.v1 import EMOTION_CLASSIFY_PROMPT, CRISIS_SYSTEM_PROMPT
 
 logger = logging.getLogger("exhale")
@@ -49,7 +49,7 @@ def _llm_crisis_response(text: str) -> str:
         )
     except Exception as e:
         logger.error("LLM crisis response failed: %s", str(e))
-        raise GroqAPIError(f"LLM crisis call failed: {str(e)}")
+        raise LLMAPIError(f"LLM crisis call failed: {str(e)}")
 
 
 def _llm_classify(text: str) -> str:
@@ -75,7 +75,7 @@ def _llm_classify(text: str) -> str:
         raise
     except Exception as e:
         logger.error("LLM emotion classification failed: %s", str(e))
-        raise GroqAPIError(f"LLM call failed: {str(e)}")
+        raise LLMAPIError(f"LLM call failed: {str(e)}")
 
 
 def classify_emotion(text: str) -> dict:
@@ -93,7 +93,7 @@ def classify_emotion(text: str) -> dict:
                 "emotion_confidence": 1.0,
                 "message": message,
             }
-        except GroqAPIError:
+        except LLMAPIError:
             logger.warning("LLM unavailable during crisis — using fallback response")
             return CRISIS_RESPONSE_FALLBACK
 
@@ -121,7 +121,7 @@ def classify_emotion(text: str) -> dict:
             "is_crisis": False,
         }
 
-    except (GroqAPIError, EmotionClassificationError):
+    except (LLMAPIError, EmotionClassificationError):
         raise
     except MLModelError as e:
         logger.error("ML model error: %s", str(e))
