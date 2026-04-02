@@ -1,47 +1,45 @@
 const EMOTION_META = {
-  happy:   { emoji: "😊", color: "bg-green-100 text-green-700 border-green-200" },
-  sad:     { emoji: "😟", color: "bg-blue-100 text-blue-700 border-blue-200" },
-  anxious: { emoji: "😰", color: "bg-yellow-100 text-yellow-700 border-yellow-200" },
-  angry:   { emoji: "😤", color: "bg-red-100 text-red-700 border-red-200" },
+  happy: { emoji: "😊", tone: "bg-emerald-50 text-emerald-700 border-emerald-200", bar: "#64b895" },
+  sad: { emoji: "😟", tone: "bg-sky-50 text-sky-700 border-sky-200", bar: "#7eb6e8" },
+  anxious: { emoji: "😰", tone: "bg-amber-50 text-amber-700 border-amber-200", bar: "#dfb255" },
+  angry: { emoji: "😤", tone: "bg-rose-50 text-rose-700 border-rose-200", bar: "#dc7f7f" },
 };
 
 export default function EmotionSummary({ stats }) {
-  const total = Object.values(stats).reduce((a, b) => a + b, 0);
+  const total = Object.values(stats).reduce((sum, count) => sum + count, 0);
 
   if (total === 0) {
     return (
-      <div className="bg-white border border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center h-48 text-center text-slate-400">
-        <span className="text-3xl mb-2">📊</span>
-        <p className="text-sm">No data yet.</p>
-        <p className="text-sm">Start chatting to track your emotions.</p>
+      <div className="ui-card flex min-h-[320px] flex-col items-center justify-center text-center">
+        <p className="ui-kicker">Emotion Breakdown</p>
+        <h2 className="ui-section-title">No emotion data yet</h2>
+        <p className="ui-subtitle mt-3 max-w-sm">Your emotion summary will appear here once the app has a few check-ins to work with.</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-      <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-4">
-        Emotion Breakdown
-      </h2>
-      <div className="space-y-3">
+    <div className="ui-card min-h-[320px]">
+      <p className="ui-kicker">Emotion Breakdown</p>
+      <h2 className="ui-section-title">How your recent check-ins are distributed</h2>
+
+      <div className="mt-6 space-y-4">
         {Object.entries(stats)
           .sort(([, a], [, b]) => b - a)
           .map(([emotion, count]) => {
             const meta = EMOTION_META[emotion];
-            const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+            const percent = Math.round((count / total) * 100);
+
             return (
               <div key={emotion}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${meta.color}`}>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold ${meta.tone}`}>
                     {meta.emoji} {emotion}
                   </span>
-                  <span className="text-xs text-slate-400">{count} × ({pct}%)</span>
+                  <span className="text-xs text-slate-500">{count} logs · {percent}%</span>
                 </div>
-                <div className="w-full bg-slate-100 rounded-full h-1.5">
-                  <div
-                    className="h-1.5 rounded-full bg-indigo-400 transition-all duration-500"
-                    style={{ width: `${pct}%` }}
-                  />
+                <div className="h-2 rounded-full bg-[rgba(23,33,43,0.06)]">
+                  <div className="h-2 rounded-full transition-all duration-500" style={{ width: `${percent}%`, backgroundColor: meta.bar }} />
                 </div>
               </div>
             );

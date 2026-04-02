@@ -6,12 +6,24 @@ from knowledge.models import KnowledgeChunk
 
 logger = logging.getLogger("exhale")
 
-_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+_model = None
+
+
+def get_embedding_model():
+    global _model
+
+    if _model is None:
+        logger.info("Loading embedding model: %s", MODEL_NAME)
+        _model = SentenceTransformer(MODEL_NAME)
+
+    return _model
 
 
 def retrieve(query_text: str, emotion: str, top_k: int = 3, is_crisis: bool = False) -> list[str]:
     try:
-        embedding = _model.encode(query_text).tolist()
+        model = get_embedding_model()
+        embedding = model.encode(query_text).tolist()
 
         if is_crisis:
             chunks = (

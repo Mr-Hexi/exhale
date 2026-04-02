@@ -1,110 +1,179 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import api from "../api/axios";
 import { useChat } from "../hooks/useChat";
 import ChatWindow from "../components/Chat/ChatWindow";
+import { ConversationSidebar } from "../components/Chat/ConversationSidebar";
 import InputBar from "../components/Chat/InputBar";
-import SmartActionPill from "../components/Chat/SmartActionPill";
 import TypingIndicator from "../components/Chat/TypingIndicator";
 import Navbar from "../components/shared/Navbar";
-import api from "../api/axios";
+
+const CHECKIN_OPTIONS = [
+  { emotion: "happy", emoji: "😊", label: "Happy" },
+  { emotion: "sad", emoji: "😟", label: "Sad" },
+  { emotion: "anxious", emoji: "😰", label: "Anxious" },
+  { emotion: "angry", emoji: "😤", label: "Angry" },
+];
 
 export default function ChatPage() {
-  const { messages, smartAction, cbtPrompt, isCrisis, isLoading, error, sendMessage } = useChat();
-  const [checkinDismissed, setCheckinDismissed] = useState(false);
-  const [checkinLoading, setCheckinLoading] = useState(false);
-  const bottomRef = useRef(null);
+  const {
+    conversations,
+    activeConversationId,
+    selectConversation,
+    createConversation,
+    deleteConversation,
+    messages,
+    smartAction,
+    isCrisis,
+    isLoading,
+    error,
+    sendMessage,
+    clearChat,
+  } = useChat();
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeMood, setActiveMood] = useState(null);
+  const [checkinDone, setCheckinDone] = useState(false);
+
+  const activeConversation = conversations.find((c) => c.id === activeConversationId);
 
   async function handleCheckin(emotion) {
-    setCheckinLoading(true);
+    setActiveMood(emotion);
+    setTimeout(() => setCheckinDone(true), 1200);
     try {
       await api.post("/api/mood/checkin/", { emotion });
     } catch {
-      // silent — checkin is non-critical
-    } finally {
-      setCheckinLoading(false);
-      setCheckinDismissed(true);
+      // Ignore check-in failures so chat remains uninterrupted.
     }
   }
 
-  const CHECKIN_OPTIONS = [
-    { emotion: "happy", emoji: "😊", label: "Happy" },
-    { emotion: "sad", emoji: "😟", label: "Sad" },
-    { emotion: "anxious", emoji: "😰", label: "Anxious" },
-    { emotion: "angry", emoji: "😤", label: "Angry" },
-  ];
-
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <div className="ui-shell flex h-[100dvh] flex-col overflow-hidden">
       <Navbar />
 
-      {/* Crisis banner */}
-      {isCrisis && (
-        <div className="bg-red-600 text-white text-sm text-center px-4 py-3 font-medium">
-          🆘 If you're in crisis, please reach out: iCall (India): 9152987821 |
-          Vandrevala Foundation: 1860-2662-345 (24/7) | International: findahelpline.com
-        </div>
-      )}
+      <div className="ui-page flex flex-1 gap-4 overflow-hidden px-1 py-4 md:py-6">
+        <ConversationSidebar
+          conversations={conversations}
+          activeId={activeConversationId}
+          onSelect={selectConversation}
+          onNew={createConversation}
+          onDelete={deleteConversation}
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+        />
 
-      {/* Mood check-in bar */}
-      {!checkinDismissed && (
-        <div className="flex items-center justify-center gap-3 py-3 bg-white border-b border-gray-100 flex-wrap px-4">
-          <span className="text-sm text-gray-500 font-medium">How are you feeling?</span>
-          {CHECKIN_OPTIONS.map(({ emotion, emoji, label }) => (
+        <section className="ui-panel flex min-w-0 flex-1 flex-col overflow-hidden">
+          <div className="flex items-center gap-3 border-b border-black/5 px-4 py-3 sm:hidden">
             <button
-              key={emotion}
-              onClick={() => handleCheckin(emotion)}
-              disabled={checkinLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 hover:bg-indigo-100 hover:text-indigo-700 text-sm text-gray-600 transition-colors disabled:opacity-50"
+              onClick={() => setSidebarOpen(true)}
+              className="rounded-2xl border border-black/5 bg-white/85 px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:text-slate-900"
+              aria-label="Open conversations"
             >
-              {emoji} {label}
+              Menu
             </button>
-          ))}
-        </div>
-      )}
-
-      {/* Error banner */}
-      {error && (
-        <div className="bg-amber-50 border-b border-amber-200 text-amber-800 text-sm text-center px-4 py-2">
-          {error}
-        </div>
-      )}
-
-      {/* Scrollable message area */}
-      <div className="flex-1 overflow-y-auto pb-4">
-        {messages.length === 0 && !isLoading ? (
-          <div className="flex flex-col items-center justify-center h-full text-center px-6 py-16">
-            <div className="text-6xl mb-4">🌬️</div>
-            <h2 className="text-xl font-semibold text-gray-700 mb-2">Start a conversation</h2>
-            <p className="text-gray-400 text-sm max-w-xs">
-              Exhale is here to listen. Share what's on your mind — no judgment, just support.
-            </p>
+            <span className="truncate text-sm font-medium text-slate-700">
+              {activeConversation?.title || "Conversation"}
+            </span>
           </div>
-        ) : (
-          <>
-            <ChatWindow messages={messages} />
-            {isLoading && <TypingIndicator />}
-            <SmartActionPill smartAction={smartAction} />
-            {cbtPrompt && (
-              <div className="flex justify-start mt-1 px-4">
-                <div className="max-w-xs lg:max-w-md bg-indigo-50 border border-indigo-200 rounded-2xl px-4 py-3">
-                  <p className="text-xs font-medium text-indigo-500 mb-1 uppercase tracking-wide">
-                    Reflection
-                  </p>
-                  <p className="text-sm text-indigo-700 italic">{cbtPrompt.content}</p>
+
+          {!checkinDone && (
+            <div className="border-b border-black/5 bg-[rgba(223,241,235,0.55)] px-4 py-3">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">Quick mood check-in</p>
+                  <p className="text-sm text-slate-500">Capture how you feel before you begin.</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {CHECKIN_OPTIONS.map(({ emotion, emoji, label }) => (
+                    <button
+                      key={emotion}
+                      onClick={() => handleCheckin(emotion)}
+                      className={`ui-btn px-3 py-2 text-xs transition-all ${
+                        activeMood === emotion
+                          ? "bg-[var(--brand-500)] text-white shadow-md ring-2 ring-[var(--brand-500)] ring-offset-2 ring-offset-[#ebf5f0]"
+                          : "ui-btn-secondary"
+                      }`}
+                    >
+                      {emoji} {label}
+                    </button>
+                  ))}
                 </div>
               </div>
-            )}
-          </>
-        )}
-        <div ref={bottomRef} />
-      </div>
+            </div>
+          )}
 
-      {/* Pinned input bar */}
-      <div className="sticky bottom-0 bg-white border-t border-gray-200 px-4 py-3">
-        <InputBar onSend={sendMessage} isLoading={isLoading} />
+          {isCrisis && (
+            <div className="border-b border-[#d79f9f] bg-[rgba(251,227,227,0.78)] px-4 py-3 text-sm text-[#8f3131]">
+              <strong>Crisis support:</strong> iCall (India): 9152987821 · Vandrevala Foundation: 1860-2662-345 (24/7) ·{" "}
+              <a href="https://findahelpline.com" target="_blank" rel="noreferrer" className="font-semibold underline">
+                findahelpline.com
+              </a>
+            </div>
+          )}
+
+          {error && (
+            <div className="px-4 pt-4">
+              <div className="ui-alert-error">{error}</div>
+            </div>
+          )}
+
+          <div className="hidden items-center justify-between gap-4 border-b border-black/5 px-6 py-5 sm:flex">
+            <div className="min-w-0">
+              <p className="ui-kicker mb-2">Conversation</p>
+              <h1 className="truncate text-2xl font-semibold tracking-[-0.03em] text-slate-900">
+                {activeConversation?.title || "New conversation"}
+              </h1>
+              <p className="mt-1 text-sm text-slate-500">
+                {messages.length > 0
+                  ? `${messages.length} messages in this thread`
+                  : "Start writing when you're ready. Exhale will listen."}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="ui-stat hidden min-w-[140px] md:block">
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Status</p>
+                <p className="mt-2 text-sm font-semibold text-slate-800">
+                  {isLoading ? "Responding..." : "Ready to chat"}
+                </p>
+              </div>
+              <button
+                onClick={clearChat}
+                disabled={messages.length === 0 || isLoading}
+                className="ui-btn ui-btn-ghost"
+              >
+                Clear thread
+              </button>
+            </div>
+          </div>
+
+          <div className="flex min-h-0 flex-1 flex-col">
+            {messages.length === 0 && !isLoading ? (
+              <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+                <div className="max-w-xl">
+                  <p className="ui-kicker">Ready When You Are</p>
+                  <h2 className="ui-title text-[clamp(1.9rem,4vw,3.2rem)]">
+                    A private space for honest conversation.
+                  </h2>
+                  <p className="ui-subtitle mt-4">
+                    Share what feels heavy, hopeful, uncertain, or tangled. The interface stays calm so your attention can stay on the conversation.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <ChatWindow messages={messages} smartAction={smartAction} isCrisis={isCrisis} />
+            )}
+
+            {isLoading && (
+              <div className="px-4 pb-2 sm:px-6">
+                <TypingIndicator />
+              </div>
+            )}
+          </div>
+
+          <div className="sticky bottom-0 border-t border-black/5 bg-[rgba(255,255,255,0.84)] backdrop-blur-xl">
+            <InputBar onSend={sendMessage} isLoading={isLoading} />
+          </div>
+        </section>
       </div>
     </div>
   );

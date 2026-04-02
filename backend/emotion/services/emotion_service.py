@@ -3,7 +3,7 @@ from services.llm_client import get_completion
 from emotion.ml.predict import predict
 from emotion.exceptions import MLModelError, EmotionClassificationError
 from chat.exceptions import LLMAPIError
-from prompts.v1 import EMOTION_CLASSIFY_PROMPT, CRISIS_SYSTEM_PROMPT
+from chat.models import AIPrompt
 
 logger = logging.getLogger("exhale")
 
@@ -26,9 +26,10 @@ def check_crisis(text: str) -> bool:
 
 def _llm_crisis_response(text: str) -> str:
     try:
+        crisis_system_prompt = AIPrompt.objects.get(name="crisis_system_prompt").content
         return get_completion(
             messages=[
-                {"role": "system", "content": CRISIS_SYSTEM_PROMPT},
+                {"role": "system", "content": crisis_system_prompt},
                 {"role": "user", "content": text},
             ],
             max_tokens=300,        # ← was 10, needs to generate a full response
@@ -41,10 +42,11 @@ def _llm_crisis_response(text: str) -> str:
 
 def _llm_classify(text: str) -> str:
     try:
+        emotion_classify_prompt = AIPrompt.objects.get(name="emotion_classify_prompt").content
         result = get_completion(
             messages=[{
                 "role": "user",
-                "content": EMOTION_CLASSIFY_PROMPT.format(text=text),
+                "content": emotion_classify_prompt.format(text=text),
             }],
             max_tokens=50,         # ← was 10, bumped to handle leading whitespace/newline
             temperature=0.0,
@@ -82,7 +84,13 @@ def classify_emotion(text: str) -> dict:
             }
         except LLMAPIError:
             logger.warning("LLM unavailable during crisis — using fallback response")
-            return CRISIS_RESPONSE_FALLBACK
+            fallback_message = AIPrompt.objects.get(name="crisis_fallback").content if AIPrompt.objects.filter(name="crisis_fallback").exists() else "Please contact a helpline immediately."
+            return {
+                "is_crisis": True,
+                "emotion": "sad",
+                "emotion_confidence": 1.0,
+                "message": fallback_message,
+            }
 
     try:
         result = predict(text)

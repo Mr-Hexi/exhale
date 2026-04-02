@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import api from "../api/axios";
-import Navbar from "../components/shared/Navbar";
 import JournalEntry from "../components/Journal/JournalEntry";
+import Navbar from "../components/shared/Navbar";
 
 export default function JournalPage() {
   const [entries, setEntries] = useState([]);
@@ -18,8 +18,8 @@ export default function JournalPage() {
   async function fetchEntries() {
     setLoading(true);
     try {
-      const res = await api.get("/api/journal/");
-      setEntries(res.data);
+      const response = await api.get("/api/journal/");
+      setEntries(response.data);
     } catch (err) {
       setError(err.response?.data?.error || "Could not load journal entries.");
     } finally {
@@ -31,9 +31,10 @@ export default function JournalPage() {
     if (!newContent.trim()) return;
     setSubmitting(true);
     setError(null);
+
     try {
-      const res = await api.post("/api/journal/", { content: newContent.trim() });
-      setEntries([res.data, ...entries]);
+      const response = await api.post("/api/journal/", { content: newContent.trim() });
+      setEntries([response.data, ...entries]);
       setNewContent("");
       setShowForm(false);
     } catch (err) {
@@ -43,91 +44,92 @@ export default function JournalPage() {
     }
   }
 
-  function handleUpdate(updated) {
-    setEntries(entries.map((e) => (e.id === updated.id ? updated : e)));
+  function handleUpdate(updatedEntry) {
+    setEntries(entries.map((entry) => (entry.id === updatedEntry.id ? updatedEntry : entry)));
   }
 
   function handleDelete(id) {
-    setEntries(entries.filter((e) => e.id !== id));
+    setEntries(entries.filter((entry) => entry.id !== id));
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="ui-shell min-h-screen">
       <Navbar />
 
-      <div className="max-w-2xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-semibold text-slate-800">Journal</h1>
-            <p className="text-sm text-slate-400 mt-0.5">Write freely. Exhale listens.</p>
+      <main className="ui-page px-1 py-6 md:py-8">
+        <section className="mb-6 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="ui-card">
+            <p className="ui-kicker">Reflective Writing</p>
+            <h1 className="ui-title text-[clamp(2rem,4vw,3.4rem)]">Journal with a little more clarity.</h1>
+            <p className="ui-subtitle mt-4 max-w-2xl">
+              Capture thoughts freely, return to older entries, and ask the app for a gentle AI insight when you want a nudge toward reflection.
+            </p>
           </div>
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="text-sm bg-indigo-500 text-white px-4 py-2 rounded-xl hover:bg-indigo-600 transition-colors"
-          >
-            {showForm ? "Cancel" : "+ New Entry"}
-          </button>
-        </div>
 
-        {/* New entry form */}
-        {showForm && (
-          <div className="bg-white border border-slate-200 rounded-xl p-4 mb-6 shadow-sm">
-            <textarea
-              className="w-full text-sm text-slate-700 border border-slate-200 rounded-lg p-3 min-h-[140px] focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none"
-              placeholder="What's on your mind today?"
-              value={newContent}
-              onChange={(e) => setNewContent(e.target.value)}
-              autoFocus
-            />
-            <div className="flex justify-end mt-3">
-              <button
-                onClick={handleCreate}
-                disabled={submitting || !newContent.trim()}
-                className="text-sm bg-indigo-500 text-white px-4 py-2 rounded-xl hover:bg-indigo-600 disabled:opacity-50 transition-colors"
-              >
-                {submitting ? "Saving…" : "Save Entry"}
-              </button>
+          <div className="ui-card">
+            <p className="ui-kicker">Journal Flow</p>
+            <div className="space-y-4">
+              <div className="ui-stat">
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Entries</p>
+                <p className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-900">{entries.length}</p>
+              </div>
+              <div className="ui-stat">
+                <p className="text-sm font-semibold text-slate-800">Private by design</p>
+                <p className="mt-2 text-sm leading-6 text-slate-500">The layout stays simple so writing, editing, and reviewing each entry feels lightweight.</p>
+              </div>
             </div>
           </div>
-        )}
+        </section>
 
-        {/* Error banner */}
-        {error && (
-          <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 px-4 py-3 rounded-xl">
-            {error}
+        <section className="ui-card mb-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="ui-section-title">Today&apos;s entry</h2>
+              <p className="ui-subtitle mt-2">Write as little or as much as you need.</p>
+            </div>
+            <button onClick={() => setShowForm((value) => !value)} className="ui-btn ui-btn-primary">
+              {showForm ? "Close editor" : "New entry"}
+            </button>
           </div>
-        )}
 
-        {/* Entry list */}
+          {showForm && (
+            <div className="mt-5 rounded-[1.5rem] border border-black/5 bg-white/82 p-4">
+              <textarea
+                className="ui-input ui-textarea border-none bg-transparent px-1 py-1 shadow-none focus:shadow-none"
+                placeholder="What is on your mind today?"
+                value={newContent}
+                onChange={(event) => setNewContent(event.target.value)}
+                autoFocus
+              />
+              <div className="mt-4 flex justify-end">
+                <button onClick={handleCreate} disabled={submitting || !newContent.trim()} className="ui-btn ui-btn-primary">
+                  {submitting ? "Saving..." : "Save entry"}
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {error && <div className="ui-alert-error mb-6">{error}</div>}
+
         {loading ? (
-          // ✅ New spinner loader
-          <div className="flex justify-center py-16">
-            <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+          <div className="ui-card flex justify-center py-16">
+            <div className="h-10 w-10 rounded-full border-4 border-[rgba(31,122,106,0.18)] border-t-[var(--brand-500)] animate-spin" />
           </div>
         ) : entries.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="text-6xl mb-4">📓</div>
-            <h2 className="text-lg font-semibold text-gray-700 mb-2">
-              Your journal is empty
-            </h2>
-            <p className="text-sm text-gray-400">
-              Write your first entry to get started.
-            </p>
+          <div className="ui-card flex flex-col items-center justify-center py-20 text-center">
+            <p className="ui-kicker">No Entries Yet</p>
+            <h2 className="ui-section-title">Your journal is waiting.</h2>
+            <p className="ui-subtitle mt-3 max-w-md">Start with one honest sentence. You can always edit, expand, or ask for insight later.</p>
           </div>
         ) : (
           <div className="space-y-4">
             {entries.map((entry) => (
-              <JournalEntry
-                key={entry.id}
-                entry={entry}
-                onUpdate={handleUpdate}
-                onDelete={handleDelete}
-              />
+              <JournalEntry key={entry.id} entry={entry} onUpdate={handleUpdate} onDelete={handleDelete} />
             ))}
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

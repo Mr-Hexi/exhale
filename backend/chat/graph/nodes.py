@@ -3,9 +3,10 @@ from emotion.services.emotion_service import classify_emotion
 from chat.services.llm_chat_service import (
     build_messages,
     get_empathetic_response,
+    get_empathetic_response_stream,
     get_smart_action,
 )
-from chat.models import ChatMessage
+from chat.models import ChatMessage, AIPrompt
 from chat.graph.state import ChatState
 
 logger = logging.getLogger("exhale")
@@ -42,24 +43,10 @@ def retrieve_context_node(state: ChatState) -> ChatState:
     return state
 
 
-def respond_node(state: ChatState) -> ChatState:
-    from prompts.v1 import CRISIS_SYSTEM_PROMPT, CRISIS_RESPONSE_FALLBACK
-    from services.llm_client import get_completion
-    from chat.exceptions import LLMAPIError
+from langchain_core.runnables.config import RunnableConfig
 
-    if state["is_crisis"]:
-        try:
-            messages = [
-                {"role": "system", "content": CRISIS_SYSTEM_PROMPT},
-                {"role": "user", "content": state["text"]},
-            ]
-            response = get_completion(messages, max_tokens=300, temperature=0.7)
-            state["ai_response"] = response.strip()
-        except Exception as e:
-            logger.error("LLM crisis response failed: %s", str(e))
-            state["ai_response"] = CRISIS_RESPONSE_FALLBACK["message"]
-        state["smart_action"] = None
-        return state
+def respond_node(state: ChatState, config: RunnableConfig) -> ChatState:
+    from chat.exceptions import LLMAPIError
 
     history = (
         ChatMessage.objects.filter(
@@ -75,10 +62,33 @@ def respond_node(state: ChatState) -> ChatState:
         history=list(history),
         history_limit=6,
         context=state.get("context", []),
+        stage=state.get("stage", "general"),
+        is_crisis=state["is_crisis"],
+        user_nickname=state.get("user_nickname"),
+        user_age=state.get("user_age"),
+        user_topics=state.get("user_topics"),
     )
 
+    stream_queue = config.get("configurable", {}).get("stream_queue")
+
+    if state["is_crisis"]:
+        try:
+            if stream_queue:
+                state["ai_response"] = get_empathetic_response_stream(messages, stream_queue)
+            else:
+                state["ai_response"] = get_empathetic_response(messages)
+        except Exception as e:
+            logger.error("LLM crisis response failed: %s", str(e))
+            fallback = AIPrompt.objects.filter(name="crisis_fallback").first()
+            state["ai_response"] = fallback.content if fallback else "Please contact a helpline immediately."
+        state["smart_action"] = None
+        return state
+
     try:
-        state["ai_response"] = get_empathetic_response(messages)
+        if stream_queue:
+            state["ai_response"] = get_empathetic_response_stream(messages, stream_queue)
+        else:
+            state["ai_response"] = get_empathetic_response(messages)
     except LLMAPIError:
         raise
 

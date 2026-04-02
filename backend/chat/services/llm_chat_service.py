@@ -1,11 +1,10 @@
 import logging
-from prompts.v1 import SYSTEM_PROMPTS, SMART_ACTIONS
-from services.llm_client import get_completion
+import json
+from services.llm_client import get_completion, get_completion_stream
 from chat.exceptions import LLMAPIError
-from prompts.v1 import CBT_FOLLOW_UPS
+from chat.models import AIPrompt
 
 logger = logging.getLogger("exhale")
-
 
 def build_messages(
     current_text: str,
@@ -13,13 +12,64 @@ def build_messages(
     history: list,
     history_limit: int = 6,
     context: list = None,
+    stage: str = "general",
+    is_crisis: bool = False,
+    user_nickname: str = None,
+    user_age: str = None,
+    user_topics: list = None
 ) -> list:
     """
-    Build the messages list for the LLM call.
-    history must be scoped to the current conversation only — never mix conversations.
-    context is a list of retrieved RAG chunks to inject into the system prompt.
+    Build the messages list for the LLM call dynamically using DB Prompts.
     """
-    system_prompt = SYSTEM_PROMPTS.get(emotion, SYSTEM_PROMPTS["sad"])
+    messages = []
+    
+    if is_crisis:
+        try:
+            system_prompt = AIPrompt.objects.get(name="crisis_system_prompt").content
+        except AIPrompt.DoesNotExist:
+            system_prompt = "You are a crisis support AI."
+    else:
+        # Construct dynamic base system prompt
+        try:
+            base = AIPrompt.objects.get(name="base_system_prompt").content
+        except AIPrompt.DoesNotExist:
+            base = "You are an empathetic companion."
+            
+        emotion_text = ""
+        if emotion:
+            try:
+                emotion_text = AIPrompt.objects.get(name="emotion_prompt", emotion=emotion).content
+            except AIPrompt.DoesNotExist:
+                pass
+                
+        stage_text = ""
+        if stage:
+            try:
+                stage_text = AIPrompt.objects.get(name="stage_prompt", emotion=stage).content
+            except AIPrompt.DoesNotExist:
+                pass
+
+        try:
+            anti_rep = AIPrompt.objects.get(name="anti_repetition_prompt").content
+        except:
+            anti_rep = ""
+
+        # Combine them all
+        system_prompt = f"{base}\n\n{emotion_text}\n\n{stage_text}\n\n{anti_rep}"
+
+    # Build user context string dynamically
+    user_context_parts = []
+    if user_nickname:
+        user_context_parts.append(f"The user's nickname is '{user_nickname}'. Use it occasionally when appropriate.")
+    if user_age:
+        user_context_parts.append(f"The user is in the '{user_age}' age bracket. Keep this in mind to make your response age-appropriate.")
+    if user_topics:
+        topics_str = ", ".join(user_topics)
+        user_context_parts.append(f"The user is also interested in overcoming or exploring these topics: {topics_str}.")
+        
+    if user_context_parts:
+        user_context_str = " ".join(user_context_parts)
+        system_prompt = f"{system_prompt}\n\n{user_context_str}"
 
     if context:
         context_block = "\n\n".join(context)
@@ -28,7 +78,15 @@ def build_messages(
             f"Here are some relevant techniques and insights you can draw from:\n{context_block}"
         )
 
-    messages = [{"role": "system", "content": system_prompt}]
+    messages.append({"role": "system", "content": system_prompt})
+
+    # Add question handling dynamically if there's a question mark
+    if "?" in current_text and not is_crisis:
+        try:
+            q_handling = AIPrompt.objects.get(name="question_handling_prompt").content
+            messages.append({"role": "system", "content": q_handling})
+        except AIPrompt.DoesNotExist:
+            pass
 
     for msg in history[-history_limit:]:
         messages.append({"role": msg.role, "content": msg.content})
@@ -38,10 +96,6 @@ def build_messages(
 
 
 def get_empathetic_response(messages: list) -> str:
-    """
-    Call the LLM and return the empathetic response text.
-    Raises LLMAPIError on any failure.
-    """
     try:
         response = get_completion(messages, max_tokens=200, temperature=0.7)
         logger.info("LLM completion succeeded")
@@ -51,11 +105,22 @@ def get_empathetic_response(messages: list) -> str:
         raise LLMAPIError(f"LLM call failed: {str(e)}")
 
 
+def get_empathetic_response_stream(messages: list, stream_queue) -> str:
+    try:
+        full_text = ""
+        for chunk in get_completion_stream(messages, max_tokens=200, temperature=0.7):
+            stream_queue.put({"type": "chunk", "content": chunk})
+            full_text += chunk
+        logger.info("LLM stream completion succeeded")
+        return full_text.strip()
+    except Exception as e:
+        logger.error("LLM stream failed: %s", str(e))
+        raise LLMAPIError(f"LLM stream failed: {str(e)}")
+
+
 def get_smart_action(emotion: str) -> dict | None:
-    """
-    Return the SMART_ACTIONS entry for the given emotion.
-    Returns None if emotion not found — never raises.
-    """
-    return SMART_ACTIONS.get(emotion, None)
-
-
+    try:
+        action_obj = AIPrompt.objects.get(name="smart_action", emotion=emotion)
+        return json.loads(action_obj.content)
+    except AIPrompt.DoesNotExist:
+        return None

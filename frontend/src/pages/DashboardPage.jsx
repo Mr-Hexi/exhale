@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import api from "../api/axios";
-import Navbar from "../components/shared/Navbar";
-import MoodChart from "../components/Dashboard/MoodChart";
 import EmotionSummary from "../components/Dashboard/EmotionSummary";
-import SkeletonCard from "../components/Dashboard/SkeletonCard"; // ✅ added
+import MoodChart from "../components/Dashboard/MoodChart";
+import SkeletonCard from "../components/Dashboard/SkeletonCard";
+import Navbar from "../components/shared/Navbar";
 
 export default function DashboardPage() {
   const [moodHistory, setMoodHistory] = useState([]);
@@ -21,30 +21,29 @@ export default function DashboardPage() {
       setError(null);
 
       try {
-        const historyRes = await api.get("/api/mood/history/");
-        if (!cancelled) setMoodHistory(historyRes.data);
+        const historyResponse = await api.get("/api/mood/history/");
+        if (!cancelled) setMoodHistory(historyResponse.data);
       } catch (err) {
         if (!cancelled) setError(err.response?.data?.error || "Could not load mood history.");
       }
 
       try {
-        const statsRes = await api.get("/api/mood/stats/");
-        const raw = statsRes.data;
-        const statsObj = { happy: 0, sad: 0, anxious: 0, angry: 0 };
-        Object.keys(statsObj).forEach((k) => {
-          if (raw[k] !== undefined) statsObj[k] = raw[k];
+        const statsResponse = await api.get("/api/mood/stats/");
+        const nextStats = { happy: 0, sad: 0, anxious: 0, angry: 0 };
+        Object.keys(nextStats).forEach((key) => {
+          if (statsResponse.data[key] !== undefined) nextStats[key] = statsResponse.data[key];
         });
-        if (!cancelled) setStats(statsObj);
-      } catch (err) {
-        console.error("Stats fetch failed:", err.response?.data);
+        if (!cancelled) setStats(nextStats);
+      } catch {
+        // Keep the rest of the page usable if stats fail.
       }
 
       if (!cancelled) setLoading(false);
 
       setInsightLoading(true);
       try {
-        const insightRes = await api.get("/api/mood/weekly-insight/");
-        if (!cancelled) setInsight(insightRes.data.insight);
+        const insightResponse = await api.get("/api/mood/weekly-insight/");
+        if (!cancelled) setInsight(insightResponse.data.insight);
       } catch {
         if (!cancelled) setInsight(null);
       } finally {
@@ -59,82 +58,76 @@ export default function DashboardPage() {
     };
   }, []);
 
-  // ✅ NEW: skeleton loading screen
+  const totalLogs = moodHistory.length;
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="ui-shell min-h-screen">
         <Navbar />
-        <div className="max-w-5xl mx-auto px-4 py-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-          <SkeletonCard height="h-64" />
-          <SkeletonCard height="h-64" />
-          <SkeletonCard height="h-32" />
+        <div className="ui-page grid gap-4 px-1 py-6 md:grid-cols-2">
+          <SkeletonCard height="h-72" />
+          <SkeletonCard height="h-72" />
+          <SkeletonCard height="h-44 md:col-span-2" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="ui-shell min-h-screen">
       <Navbar />
 
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-slate-800">Dashboard</h1>
-          <p className="text-sm text-slate-400 mt-0.5">
-            Your emotional patterns at a glance.
-          </p>
-        </div>
-
-        {error && (
-          <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 px-4 py-3 rounded-xl">
-            {error}
+      <main className="ui-page px-1 py-6 md:py-8">
+        <section className="mb-6 grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+          <div className="ui-card">
+            <p className="ui-kicker">Dashboard</p>
+            <h1 className="ui-title text-[clamp(2rem,4vw,3.3rem)]">See your emotional patterns more clearly.</h1>
+            <p className="ui-subtitle mt-4 max-w-2xl">
+              This view turns check-ins from chat and journal into a calm summary so trends are easier to notice without feeling clinical.
+            </p>
           </div>
-        )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+            <div className="ui-card">
+              <p className="ui-kicker">Tracked Logs</p>
+              <p className="text-3xl font-semibold tracking-[-0.04em] text-slate-900">{totalLogs}</p>
+              <p className="mt-2 text-sm text-slate-500">Each log comes from a real interaction, not a separate manual workflow.</p>
+            </div>
+            <div className="ui-card">
+              <p className="ui-kicker">Weekly Focus</p>
+              <p className="text-sm leading-7 text-slate-600">
+                Use the trend line for momentum and the breakdown for balance. Together they help frame what needs attention.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {error && <div className="ui-alert-error mb-6">{error}</div>}
+
+        <section className="grid gap-4 md:grid-cols-2">
           <MoodChart moodHistory={moodHistory} />
           <EmotionSummary stats={stats} />
-        </div>
+        </section>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-          <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">
-            Weekly Insight
-          </h2>
+        <section className="ui-card mt-6">
+          <p className="ui-kicker">Weekly Insight</p>
+          <h2 className="ui-section-title mt-1">A short summary of your recent emotional pattern</h2>
 
           {insightLoading ? (
-            <div className="flex items-center gap-2 text-sm text-slate-400 italic">
-              <svg
-                className="animate-spin h-4 w-4 text-indigo-400"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8v8z"
-                />
+            <div className="mt-4 flex items-center gap-2 text-sm text-slate-500">
+              <svg className="h-4 w-4 animate-spin text-[var(--brand-500)]" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
               </svg>
-              Generating your weekly insight…
+              Generating your weekly insight...
             </div>
           ) : insight ? (
-            <p className="text-sm text-slate-700 leading-relaxed">
-              {insight}
-            </p>
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-700">{insight}</p>
           ) : (
-            <p className="text-sm text-slate-400 italic">
-              No insight yet — log some moods over the week and check back.
-            </p>
+            <p className="mt-4 text-sm text-slate-500">No insight yet. Keep checking in through chat or journal and this section will update.</p>
           )}
-        </div>
-      </div>
+        </section>
+      </main>
     </div>
   );
 }

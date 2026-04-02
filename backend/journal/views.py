@@ -9,7 +9,7 @@ from emotion.services.emotion_service import classify_emotion
 from mood.models import MoodLog
 from services.llm_client import get_completion
 from chat.exceptions import LLMAPIError
-from prompts.v1 import JOURNAL_INSIGHT_PROMPT
+from chat.models import AIPrompt
 logger = logging.getLogger("exhale")
 
 
@@ -111,7 +111,8 @@ class JournalInsightView(APIView):
             return Response({"error": "Entry not found."}, status=404)
 
         try:
-            prompt = JOURNAL_INSIGHT_PROMPT.format(
+            journal_insight_prompt = AIPrompt.objects.get(name="journal_insight_prompt").content
+            prompt = journal_insight_prompt.format(
                 entry=entry.content,
                 emotion=entry.emotion or "unknown",
             )

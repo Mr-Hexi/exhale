@@ -68,3 +68,21 @@ def get_completion(
             f"LLM returned no content (finish_reason: {response.choices[0].finish_reason})"
         )
     return content.strip()
+
+def get_completion_stream(
+    messages: list[dict],
+    max_tokens: int = 300,
+    temperature: float = 0.7,
+):
+    response = llm_client.chat.completions.create(
+        model=LLM_MODEL,
+        messages=messages,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        stream=True
+    )
+    for chunk in response:
+        if len(chunk.choices) > 0:
+            delta = chunk.choices[0].delta.content
+            if delta:
+                yield delta

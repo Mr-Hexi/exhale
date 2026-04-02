@@ -2,6 +2,27 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
+Topic = User.topics.rel.model if hasattr(User.topics, 'rel') else User.topics.field.related_model # Reliable way to get Topic model without circular import
+
+class TopicSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Topic
+        fields = ['id', 'name', 'slug']
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    topics = TopicSerializer(many=True, read_only=True)
+    topic_ids = serializers.PrimaryKeyRelatedField(
+        queryset=Topic.objects.all(), 
+        source='topics', 
+        many=True, 
+        write_only=True,
+        required=False
+    )
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'nickname', 'age_range', 'topics', 'topic_ids']
+        read_only_fields = ['id', 'username', 'email']
 
 
 class RegisterSerializer(serializers.ModelSerializer):

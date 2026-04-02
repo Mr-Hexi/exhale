@@ -1,0 +1,4 @@
+  File "C:\Huzaifa\bizz_python\ML_PROJECTS_GITT\exhale\backend\populate.py", line 11
+    from chat.migrations.0003_populate_prompts import load_prompts
+                             ^
+SyntaxError: invalid decimal literal

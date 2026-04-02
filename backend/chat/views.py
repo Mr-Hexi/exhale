@@ -2,12 +2,16 @@ import logging
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from prompts.v1 import CBT_FOLLOW_UPS
-from chat.models import Conversation, ChatMessage
+from chat.models import Conversation, ChatMessage, AIPrompt
 from chat.serializers import ConversationSerializer, ChatMessageSerializer, SendMessageSerializer
 from chat.exceptions import LLMAPIError
 from chat.graph import chat_graph
 from mood.models import MoodLog
+import queue
+import threading
+import json
+from django.http import StreamingHttpResponse
+
 logger = logging.getLogger("exhale")
 
 
@@ -39,90 +43,127 @@ class SendMessageView(APIView):
 
             content = serializer.validated_data["content"]
 
-            result = chat_graph.invoke(
-                {
-                    "text": content,
-                    "emotion": None,
-                    "confidence": None,
-                    "is_crisis": False,
-                    "context": [],
-                    "ai_response": None,
-                    "smart_action": None,
-                    "conversation_id": conversation.id,
-                    "user_id": request.user.id,
-                },
-                config={"configurable": {"thread_id": str(conversation.id)}},
-            )
+            q = queue.Queue()
 
-            emotion    = result["emotion"]
-            confidence = result["confidence"]
-            is_crisis  = result["is_crisis"]
+            def bg_thread():
+                try:
+                    topics_list = [t.name for t in request.user.topics.all()] if hasattr(request.user, "topics") else []
 
-            user_msg = ChatMessage.objects.create(
-                user=request.user,
-                conversation=conversation,
-                content=content,
-                role="user",
-                emotion=emotion,
-                emotion_confidence=confidence,
-            )
+                    result = chat_graph.invoke(
+                        {
+                            "text": content,
+                            "emotion": None,
+                            "confidence": None,
+                            "is_crisis": False,
+                            "context": [],
+                            "ai_response": None,
+                            "smart_action": None,
+                            "conversation_id": conversation.id,
+                            "user_id": request.user.id,
+                            "user_nickname": getattr(request.user, "nickname", None),
+                            "user_age": getattr(request.user, "age_range", None),
+                            "user_topics": topics_list,
+                        },
+                        config={"configurable": {"thread_id": str(conversation.id), "stream_queue": q}},
+                    )
 
-            ai_msg = ChatMessage.objects.create(
-                user=request.user,
-                conversation=conversation,
-                content=result["ai_response"],
-                role="assistant",
-            )
+                    emotion    = result["emotion"]
+                    confidence = result["confidence"]
+                    is_crisis  = result["is_crisis"]
 
-            MoodLog.objects.create(
-                user=request.user,
-                emotion=emotion,
-                confidence=confidence,
-                source="chat",
-            )
-
-            # CBT follow-up — only for sad/anxious, only if not sent recently
-            cbt_prompt_data = None
-            if not is_crisis and emotion in ("sad", "anxious"):
-                recent_assistant_contents = list(
-                    ChatMessage.objects.filter(
+                    user_msg = ChatMessage.objects.create(
+                        user=request.user,
                         conversation=conversation,
+                        content=content,
+                        role="user",
+                        emotion=emotion,
+                        emotion_confidence=confidence,
+                    )
+
+                    ai_msg = ChatMessage.objects.create(
+                        user=request.user,
+                        conversation=conversation,
+                        content=result["ai_response"],
                         role="assistant",
-                    ).order_by("-timestamp")[:3].values_list("content", flat=True)
-                )
+                    )
 
-                already_sent = any(
-                    msg in CBT_FOLLOW_UPS.values()
-                    for msg in recent_assistant_contents
-                )
+                    MoodLog.objects.create(
+                        user=request.user,
+                        emotion=emotion,
+                        confidence=confidence,
+                        source="chat",
+                    )
 
-                if not already_sent:
-                    cbt_text = CBT_FOLLOW_UPS.get(emotion)
-                    if cbt_text:
-                        ChatMessage.objects.create(
-                            user=request.user,
-                            conversation=conversation,
-                            content=cbt_text,
-                            role="assistant",
-                        )
-                        cbt_prompt_data = {"content": cbt_text}
-                        logger.info(
-                            "CBT follow-up sent — user_id=%s conversation_id=%s emotion=%s",
-                            request.user.id, conversation.id, emotion,
+                    # CBT follow-up
+                    cbt_prompt_data = None
+                    if not is_crisis and emotion in ("sad", "anxious"):
+                        recent_assistant_contents = list(
+                            ChatMessage.objects.filter(
+                                conversation=conversation,
+                                role="assistant",
+                            ).order_by("-timestamp")[:3].values_list("content", flat=True)
                         )
 
-            logger.info(
-                "Message sent — user_id=%s conversation_id=%s emotion=%s confidence=%.2f is_crisis=%s",
-                request.user.id, conversation.id, emotion, confidence, is_crisis,
-            )
+                        # Fetch CBT prompt from DB
+                        cbt_prompt_obj = AIPrompt.objects.filter(name="cbt_prompt", emotion=emotion).first()
+                        if cbt_prompt_obj:
+                            cbt_text = cbt_prompt_obj.content
+                            already_sent = any(
+                                msg == cbt_text
+                                for msg in recent_assistant_contents
+                            )
 
-            return Response({
-                "user_message": ChatMessageSerializer(user_msg).data,
-                "ai_message":   ChatMessageSerializer(ai_msg).data,
-                "smart_action": result["smart_action"],
-                "is_crisis":    is_crisis,
-                "cbt_prompt":   cbt_prompt_data,
-            })
+                            if not already_sent:
+                                ChatMessage.objects.create(
+                                    user=request.user,
+                                    conversation=conversation,
+                                    content=cbt_text,
+                                    role="assistant",
+                                )
+                                cbt_prompt_data = {"content": cbt_text}
+                                logger.info(
+                                    "CBT follow-up sent — user_id=%s conversation_id=%s emotion=%s",
+                                    request.user.id, conversation.id, emotion,
+                                )
+
+                    logger.info(
+                        "Message sent — user_id=%s conversation_id=%s emotion=%s confidence=%.2f is_crisis=%s",
+                        request.user.id, conversation.id, emotion, confidence, is_crisis,
+                    )
+
+                    q.put({"type": "done", "result": {
+                        "user_message": ChatMessageSerializer(user_msg).data,
+                        "ai_message":   ChatMessageSerializer(ai_msg).data,
+                        "smart_action": result["smart_action"],
+                        "is_crisis":    is_crisis,
+                        "cbt_prompt":   cbt_prompt_data,
+                    }})
+
+                except LLMAPIError as e:
+                    logger.error("LLM API failed — user_id=%s: %s", request.user.id, str(e))
+                    q.put({"type": "error", "error": "AI service temporarily unavailable."})
+                except Exception as e:
+                    logger.error("Unexpected error in bg_thread — user_id=%s: %s", request.user.id, str(e))
+                    q.put({"type": "error", "error": "Something went wrong. Please try again."})
+
+            threading.Thread(target=bg_thread).start()
+
+            def generate():
+                while True:
+                    item = q.get()
+                    if item.get("type") == "chunk":
+                        yield f"data: {json.dumps(item)}\n\n"
+                    elif item.get("type") == "done":
+                        yield f"data: {json.dumps(item)}\n\n"
+                        break
+                    elif item.get("type") == "error":
+                        yield f"data: {json.dumps(item)}\n\n"
+                        break
+
+            response = StreamingHttpResponse(generate(), content_type="text/event-stream")
+            response["Cache-Control"] = "no-cache"
+            response["X-Accel-Buffering"] = "no" # For Nginx to pass chunked stream immediately
+            return response
 
         except LLMAPIError as e:
             logger.error("LLM API failed — user_id=%s: %s", request.user.id, str(e))

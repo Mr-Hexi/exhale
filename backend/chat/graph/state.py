@@ -1,4 +1,4 @@
-from typing import TypedDict
+from typing import TypedDict, Any
 
 
 class ChatState(TypedDict):
@@ -11,3 +11,6 @@ class ChatState(TypedDict):
     smart_action: dict | None
     conversation_id: int     # used to scope history in respond node
     user_id: int             # used for logging
+    user_nickname: str | None
+    user_age: str | None
+    user_topics: list[str] | None

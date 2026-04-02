@@ -33,3 +33,7 @@ issues.txt
 node_modules/
 dist/
 .env
+
+
+#dir
+UI-improvements/

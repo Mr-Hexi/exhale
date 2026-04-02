@@ -44,3 +44,26 @@ class   ChatMessage(models.Model):
 
     def __str__(self):
         return f"ChatMessage({self.id}) — {self.role} in conv {self.conversation_id}"
+
+
+
+class AIPrompt(models.Model):
+    # Example names: "system_prompt", "crisis_prompt", "cbt_prompt", "smart_action"
+    name = models.CharField(max_length=50)
+    
+    # Example emotions: "sad", "anxious", "happy", "angry"
+    emotion = models.CharField(max_length=50, blank=True, null=True)
+    
+    # The actual prompt wording or JSON for a smart action
+    content = models.TextField()
+    
+    # Metadata
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('name', 'emotion')
+
+    def __str__(self):
+        if self.emotion:
+            return f"{self.name} - {self.emotion}"
+        return self.name

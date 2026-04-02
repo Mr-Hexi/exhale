@@ -3,10 +3,10 @@ import api from "../../api/axios";
 import AIInsight from "./AIInsight";
 
 const EMOTION_META = {
-  happy:   { emoji: "😊", color: "bg-green-100 text-green-700" },
-  sad:     { emoji: "😟", color: "bg-blue-100 text-blue-700" },
-  anxious: { emoji: "😰", color: "bg-yellow-100 text-yellow-700" },
-  angry:   { emoji: "😤", color: "bg-red-100 text-red-700" },
+  happy: { emoji: "😊", tone: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  sad: { emoji: "😟", tone: "bg-sky-50 text-sky-700 border-sky-200" },
+  anxious: { emoji: "😰", tone: "bg-amber-50 text-amber-700 border-amber-200" },
+  angry: { emoji: "😤", tone: "bg-rose-50 text-rose-700 border-rose-200" },
 };
 
 export default function JournalEntry({ entry, onUpdate, onDelete }) {
@@ -20,15 +20,20 @@ export default function JournalEntry({ entry, onUpdate, onDelete }) {
 
   const emotion = entry.emotion ? EMOTION_META[entry.emotion] : null;
   const createdAt = new Date(entry.created_at).toLocaleDateString("en-IN", {
-    day: "numeric", month: "short", year: "numeric",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
   });
+
+  const preview = entry.content.length > 180 ? `${entry.content.slice(0, 180)}...` : entry.content;
 
   async function handleGetInsight() {
     setInsightLoading(true);
     setError(null);
     try {
-      const res = await api.post(`/api/journal/${entry.id}/insight/`);
-      setInsightText(res.data.insight);
+      const response = await api.post(`/api/journal/${entry.id}/insight/`);
+      setInsightText(response.data.insight);
+      setExpanded(true);
     } catch (err) {
       setError(err.response?.data?.error || "Could not generate insight.");
     } finally {
@@ -39,8 +44,8 @@ export default function JournalEntry({ entry, onUpdate, onDelete }) {
   async function handleSaveEdit() {
     setError(null);
     try {
-      const res = await api.put(`/api/journal/${entry.id}/`, { content: editContent });
-      onUpdate(res.data);
+      const response = await api.put(`/api/journal/${entry.id}/`, { content: editContent });
+      onUpdate(response.data);
       setEditing(false);
     } catch (err) {
       setError(err.response?.data?.error || "Could not save changes.");
@@ -57,111 +62,84 @@ export default function JournalEntry({ entry, onUpdate, onDelete }) {
     }
   }
 
-  const preview = entry.content.length > 120
-    ? entry.content.slice(0, 120) + "…"
-    : entry.content;
-
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
-      {/* Header row */}
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <span className="text-xs text-slate-400">{createdAt}</span>
-        <div className="flex items-center gap-2">
-          {emotion && (
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${emotion.color}`}>
-              {emotion.emoji} {entry.emotion}
-            </span>
-          )}
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="text-xs text-indigo-500 hover:underline"
-          >
-            {expanded ? "Collapse" : "View"}
-          </button>
+    <article className="ui-card">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="ui-kicker mb-2">Journal Entry</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-semibold text-slate-800">{createdAt}</span>
+            {emotion && (
+              <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold ${emotion.tone}`}>
+                {emotion.emoji} {entry.emotion}
+              </span>
+            )}
+          </div>
         </div>
+
+        <button onClick={() => setExpanded((value) => !value)} className="ui-btn ui-btn-ghost self-start">
+          {expanded ? "Collapse" : "Read more"}
+        </button>
       </div>
 
-      {/* Content */}
       {!expanded ? (
-        <p className="text-sm text-slate-600 leading-relaxed">{preview}</p>
+        <p className="mt-4 text-sm leading-7 text-slate-600">{preview}</p>
       ) : (
-        <div>
+        <div className="mt-4">
           {editing ? (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <textarea
-                className="w-full text-sm text-slate-700 border border-slate-300 rounded-lg p-3 min-h-[120px] focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                className="ui-input ui-textarea"
                 value={editContent}
-                onChange={(e) => setEditContent(e.target.value)}
+                onChange={(event) => setEditContent(event.target.value)}
               />
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
+                <button onClick={handleSaveEdit} className="ui-btn ui-btn-primary">Save changes</button>
                 <button
-                  onClick={handleSaveEdit}
-                  className="text-xs bg-indigo-500 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-600"
-                >
-                  Save
-                </button>
-                <button
-                  onClick={() => { setEditing(false); setEditContent(entry.content); }}
-                  className="text-xs text-slate-500 hover:text-slate-700 px-3 py-1.5"
+                  onClick={() => {
+                    setEditing(false);
+                    setEditContent(entry.content);
+                  }}
+                  className="ui-btn ui-btn-ghost"
                 >
                   Cancel
                 </button>
               </div>
             </div>
           ) : (
-            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{entry.content}</p>
+            <p className="whitespace-pre-wrap text-sm leading-7 text-slate-700">{entry.content}</p>
           )}
 
-          {/* AI Insight */}
           <AIInsight insightText={insightText} isLoading={insightLoading} />
 
-          {error && (
-            <p className="mt-2 text-xs text-red-500">{error}</p>
-          )}
+          {error && <p className="mt-3 text-sm text-[#a53636]">{error}</p>}
 
-          {/* Action buttons */}
           {!editing && (
-            <div className="flex flex-wrap gap-2 mt-4">
-              <button
-                onClick={handleGetInsight}
-                disabled={insightLoading}
-                className="text-xs bg-indigo-50 text-indigo-600 border border-indigo-200 px-3 py-1.5 rounded-lg hover:bg-indigo-100 disabled:opacity-50"
-              >
-                ✨ Get AI Insight
+            <div className="mt-5 flex flex-wrap gap-2">
+              <button onClick={handleGetInsight} disabled={insightLoading} className="ui-btn ui-btn-secondary">
+                Get AI insight
               </button>
-              <button
-                onClick={() => setEditing(true)}
-                className="text-xs bg-slate-50 text-slate-600 border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-slate-100"
-              >
-                ✏️ Edit
+              <button onClick={() => setEditing(true)} className="ui-btn ui-btn-ghost">
+                Edit
               </button>
               {confirmDelete ? (
                 <>
-                  <button
-                    onClick={handleDelete}
-                    className="text-xs bg-red-500 text-white px-3 py-1.5 rounded-lg hover:bg-red-600"
-                  >
-                    Confirm Delete
+                  <button onClick={handleDelete} className="ui-btn ui-btn-danger">
+                    Confirm delete
                   </button>
-                  <button
-                    onClick={() => setConfirmDelete(false)}
-                    className="text-xs text-slate-500 hover:text-slate-700 px-3 py-1.5"
-                  >
+                  <button onClick={() => setConfirmDelete(false)} className="ui-btn ui-btn-ghost">
                     Cancel
                   </button>
                 </>
               ) : (
-                <button
-                  onClick={() => setConfirmDelete(true)}
-                  className="text-xs bg-red-50 text-red-500 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-100"
-                >
-                  🗑 Delete
+                <button onClick={() => setConfirmDelete(true)} className="ui-btn ui-btn-danger">
+                  Delete
                 </button>
               )}
             </div>
           )}
         </div>
       )}
-    </div>
+    </article>
   );
 }
