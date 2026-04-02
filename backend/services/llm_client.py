@@ -17,6 +17,10 @@ PROVIDER_CONFIGS = {
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
         "api_key_env": "GEMINI_API_KEY",
     },
+    "groq": {                                      # ← add this
+        "base_url": "https://api.groq.com/openai/v1",
+        "api_key_env": "GROQ_API_KEY",
+    },
 }
 
 def _build_client() -> tuple[OpenAI, str]:
@@ -54,4 +58,13 @@ def get_completion(
         max_tokens=max_tokens,
         temperature=temperature,
     )
-    return response.choices[0].message.content.strip()
+    content = response.choices[0].message.content
+    if content is None:
+        logger.error(
+            "LLM returned None content — finish_reason: %s",
+            response.choices[0].finish_reason,
+        )
+        raise ValueError(
+            f"LLM returned no content (finish_reason: {response.choices[0].finish_reason})"
+        )
+    return content.strip()

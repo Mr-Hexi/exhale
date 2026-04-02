@@ -85,3 +85,56 @@ Your response must:
 
 Keep the response to 4-5 sentences. Warm tone. Human, not robotic.
 """
+
+CRISIS_RESPONSE_FALLBACK = {
+    "is_crisis": True,
+    "emotion": "sad",
+    "emotion_confidence": 1.0,
+    "message": (
+        "I'm really concerned about what you've shared. "
+        "Please know you're not alone. "
+        "If you're in distress, please reach out to a crisis helpline:\n\n"
+        "iCall (India): 9152987821\n"
+        "Vandrevala Foundation: 1860-2662-345 (24/7)\n"
+        "International: findahelpline.com\n\n"
+        "I'm here with you. Would you like to talk about what's going on?"
+    ),
+}
+
+
+SMART_ACTIONS = {
+    "anxious": {
+        "label": "Try a breathing exercise",
+        "type": "exercise",
+        "content": (
+            "Box Breathing (4-4-4-4):\n"
+            "1. Inhale slowly for 4 counts\n"
+            "2. Hold for 4 counts\n"
+            "3. Exhale slowly for 4 counts\n"
+            "4. Hold for 4 counts\n"
+            "Repeat 4 times. You've got this."
+        ),
+    },
+    "sad": {
+        "label": "Try a reflection prompt",
+        "type": "prompt",
+        "content": "What is one small thing that brought you comfort recently, even briefly?",
+    },
+    "angry": {
+        "label": "Try a grounding exercise",
+        "type": "exercise",
+        "content": (
+            "5-4-3-2-1 Grounding:\n"
+            "Name 5 things you can see\n"
+            "4 things you can touch\n"
+            "3 things you can hear\n"
+            "2 things you can smell\n"
+            "1 thing you can taste"
+        ),
+    },
+    "happy": {
+        "label": "Save this moment",
+        "type": "journal_prompt",
+        "content": "You seem happy right now — want to capture this feeling in your journal?",
+    },
+}

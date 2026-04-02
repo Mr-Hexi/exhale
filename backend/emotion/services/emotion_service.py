@@ -16,20 +16,7 @@ CRISIS_KEYWORDS = [
     "hurt myself", "self harm", "worthless", "give up on life"
 ]
 
-CRISIS_RESPONSE_FALLBACK = {
-    "is_crisis": True,
-    "emotion": "sad",
-    "emotion_confidence": 1.0,
-    "message": (
-        "I'm really concerned about what you've shared. "
-        "Please know you're not alone. "
-        "If you're in distress, please reach out to a crisis helpline:\n\n"
-        "iCall (India): 9152987821\n"
-        "Vandrevala Foundation: 1860-2662-345 (24/7)\n"
-        "International: findahelpline.com\n\n"
-        "I'm here with you. Would you like to talk about what's going on?"
-    ),
-}
+
 
 
 def check_crisis(text: str) -> bool:
@@ -44,7 +31,7 @@ def _llm_crisis_response(text: str) -> str:
                 {"role": "system", "content": CRISIS_SYSTEM_PROMPT},
                 {"role": "user", "content": text},
             ],
-            max_tokens=300,
+            max_tokens=300,        # ← was 10, needs to generate a full response
             temperature=0.7,
         )
     except Exception as e:
@@ -59,9 +46,9 @@ def _llm_classify(text: str) -> str:
                 "role": "user",
                 "content": EMOTION_CLASSIFY_PROMPT.format(text=text),
             }],
-            max_tokens=10,
+            max_tokens=50,         # ← was 10, bumped to handle leading whitespace/newline
             temperature=0.0,
-        ).lower()
+        ).strip().lower()          # ← strip before lower to catch leading whitespace
 
         if result not in ALLOWED_LABELS:
             raise EmotionClassificationError(

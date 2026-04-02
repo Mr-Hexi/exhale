@@ -13,6 +13,7 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/chat" element={
             <ProtectedRoute><ChatPage /></ProtectedRoute>

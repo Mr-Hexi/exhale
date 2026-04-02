@@ -1,0 +1,128 @@
+﻿{
+  "info": {
+    "_postman_id": "2d4bf558-e833-461f-a001-3070d7ad7ad5",
+    "name": "Exhale Knowledge API",
+    "description": "Collection for knowledge search endpoint.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Auth Helper - Login",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/login/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login",
+            ""
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const data = pm.response.json();",
+              "if (data.access) pm.environment.set('accessToken', data.access);",
+              "if (data.refresh) pm.environment.set('refreshToken', data.refresh);",
+              "",
+              "pm.test('Tokens returned', function () {",
+              "  pm.expect(data).to.have.property('access');",
+              "  pm.expect(data).to.have.property('refresh');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Knowledge Search",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"I feel anxious and overwhelmed\",\n  \"emotion\": \"anxious\",\n  \"is_crisis\": false\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/knowledge/search/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "knowledge",
+            "search",
+            ""
+          ]
+        },
+        "description": "Searches knowledge snippets based on query + emotion context."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const data = pm.response.json();",
+              "pm.test('Response has results field', function () {",
+              "  pm.expect(data).to.have.property('results');",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000"
+    }
+  ]
+}

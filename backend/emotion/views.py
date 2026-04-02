@@ -3,7 +3,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
-from chat.services.emotion_service import classify_emotion
+from chat.models import ChatMessage
+from emotion.services.emotion_service import classify_emotion
 from chat.exceptions import LLMAPIError
 from emotion.serializers import DetectEmotionSerializer
 from emotion.exceptions import MLModelError, EmotionClassificationError
@@ -55,8 +56,15 @@ class EmotionSummaryView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # TODO: wire to ChatMessage after Phase 3 models are built
-        return Response(
-            {"happy": 0, "sad": 0, "anxious": 0, "angry": 0},
-            status=200
+        from django.db.models import Count
+        counts = (
+            ChatMessage.objects
+            .filter(user=request.user, role="user", emotion__isnull=False)
+            .values("emotion")
+            .annotate(count=Count("emotion"))
         )
+        summary = {"happy": 0, "sad": 0, "anxious": 0, "angry": 0}
+        for row in counts:
+            if row["emotion"] in summary:
+                summary[row["emotion"]] = row["count"]
+        return Response(summary)

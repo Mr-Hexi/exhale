@@ -1,0 +1,311 @@
+﻿{
+  "info": {
+    "_postman_id": "4bb3f4fd-033f-4dfa-8cc8-57c2f55f518d",
+    "name": "Exhale Chat Flow Test",
+    "description": "End-to-end chat flow: login, create conversation, send normal/crisis messages, fetch history, clear chat.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "1) Login",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/login/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login",
+            ""
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const data = pm.response.json();",
+              "if (data.access) pm.environment.set('accessToken', data.access);",
+              "if (data.refresh) pm.environment.set('refreshToken', data.refresh);",
+              "",
+              "pm.test('Access and refresh tokens returned', function () {",
+              "  pm.expect(data).to.have.property('access');",
+              "  pm.expect(data).to.have.property('refresh');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2) Create Conversation",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/chat/conversations/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "chat",
+            "conversations",
+            ""
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "",
+              "const data = pm.response.json();",
+              "if (data.id !== undefined) pm.environment.set('conversationId', data.id);",
+              "",
+              "pm.test('Conversation id returned', function () {",
+              "  pm.expect(data).to.have.property('id');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3) Send Normal Message",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"content\": \"I had a really great day today\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/chat/{{conversationId}}/send/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "chat",
+            "{{conversationId}}",
+            "send",
+            ""
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const data = pm.response.json();",
+              "pm.test('Response has required keys', function () {",
+              "  pm.expect(data).to.have.property('user_message');",
+              "  pm.expect(data).to.have.property('ai_message');",
+              "  pm.expect(data).to.have.property('smart_action');",
+              "  pm.expect(data).to.have.property('is_crisis');",
+              "});",
+              "",
+              "pm.test('Normal message should not be crisis', function () {",
+              "  pm.expect(data.is_crisis).to.eql(false);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4) Send Crisis Message",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"content\": \"I want to give up on life\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/chat/{{conversationId}}/send/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "chat",
+            "{{conversationId}}",
+            "send",
+            ""
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const data = pm.response.json();",
+              "pm.test('Crisis flag is true', function () {",
+              "  pm.expect(data.is_crisis).to.eql(true);",
+              "});",
+              "",
+              "pm.test('AI message contains helpline signal text', function () {",
+              "  const text = (data.ai_message && data.ai_message.content ? data.ai_message.content : '').toLowerCase();",
+              "  pm.expect(text.includes('helpline') || text.includes('not alone') || text.includes('icall')).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5) Fetch History",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/chat/{{conversationId}}/history/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "chat",
+            "{{conversationId}}",
+            "history",
+            ""
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const data = pm.response.json();",
+              "pm.test('History is an array', function () {",
+              "  pm.expect(Array.isArray(data)).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "6) Clear Chat",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/chat/{{conversationId}}/clear/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "chat",
+            "{{conversationId}}",
+            "clear",
+            ""
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const data = pm.response.json();",
+              "pm.test('Clear response message is correct', function () {",
+              "  pm.expect(data).to.have.property('message');",
+              "  pm.expect(data.message).to.eql('Chat cleared.');",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "conversationId",
+      "value": "1"
+    }
+  ]
+}

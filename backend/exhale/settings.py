@@ -49,6 +49,8 @@ INSTALLED_APPS = [
     "emotion",
     "mood",
     "journal",
+    "knowledge",
+    
     
     
 ]

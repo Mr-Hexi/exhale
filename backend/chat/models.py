@@ -18,7 +18,7 @@ class Conversation(models.Model):
         return f"Conversation({self.id}) — {self.user_id}"
 
 
-class ChatMessage(models.Model):
+class   ChatMessage(models.Model):
     class Role(models.TextChoices):
         USER = "user", "User"
         ASSISTANT = "assistant", "Assistant"
