@@ -101,14 +101,19 @@ export default function JournalPage() {
 
         {/* Entry list */}
         {loading ? (
-          <div className="flex justify-center items-center h-40 text-slate-400 text-sm">
-            Loading entries…
+          // ✅ New spinner loader
+          <div className="flex justify-center py-16">
+            <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
           </div>
         ) : entries.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-52 text-center text-slate-400">
-            <span className="text-4xl mb-3">📓</span>
-            <p className="text-sm">Your journal is empty.</p>
-            <p className="text-sm">Write your first entry.</p>
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div className="text-6xl mb-4">📓</div>
+            <h2 className="text-lg font-semibold text-gray-700 mb-2">
+              Your journal is empty
+            </h2>
+            <p className="text-sm text-gray-400">
+              Write your first entry to get started.
+            </p>
           </div>
         ) : (
           <div className="space-y-4">

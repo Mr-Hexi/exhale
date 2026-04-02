@@ -2,12 +2,12 @@ import logging
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from prompts.v1 import CBT_FOLLOW_UPS
 from chat.models import Conversation, ChatMessage
 from chat.serializers import ConversationSerializer, ChatMessageSerializer, SendMessageSerializer
 from chat.exceptions import LLMAPIError
 from chat.graph import chat_graph
 from mood.models import MoodLog
-
 logger = logging.getLogger("exhale")
 
 
@@ -81,6 +81,36 @@ class SendMessageView(APIView):
                 source="chat",
             )
 
+            # CBT follow-up — only for sad/anxious, only if not sent recently
+            cbt_prompt_data = None
+            if not is_crisis and emotion in ("sad", "anxious"):
+                recent_assistant_contents = list(
+                    ChatMessage.objects.filter(
+                        conversation=conversation,
+                        role="assistant",
+                    ).order_by("-timestamp")[:3].values_list("content", flat=True)
+                )
+
+                already_sent = any(
+                    msg in CBT_FOLLOW_UPS.values()
+                    for msg in recent_assistant_contents
+                )
+
+                if not already_sent:
+                    cbt_text = CBT_FOLLOW_UPS.get(emotion)
+                    if cbt_text:
+                        ChatMessage.objects.create(
+                            user=request.user,
+                            conversation=conversation,
+                            content=cbt_text,
+                            role="assistant",
+                        )
+                        cbt_prompt_data = {"content": cbt_text}
+                        logger.info(
+                            "CBT follow-up sent — user_id=%s conversation_id=%s emotion=%s",
+                            request.user.id, conversation.id, emotion,
+                        )
+
             logger.info(
                 "Message sent — user_id=%s conversation_id=%s emotion=%s confidence=%.2f is_crisis=%s",
                 request.user.id, conversation.id, emotion, confidence, is_crisis,
@@ -91,6 +121,7 @@ class SendMessageView(APIView):
                 "ai_message":   ChatMessageSerializer(ai_msg).data,
                 "smart_action": result["smart_action"],
                 "is_crisis":    is_crisis,
+                "cbt_prompt":   cbt_prompt_data,
             })
 
         except LLMAPIError as e:
@@ -99,7 +130,6 @@ class SendMessageView(APIView):
         except Exception as e:
             logger.error("Unexpected error in SendMessageView — user_id=%s: %s", request.user.id, str(e))
             return Response({"error": "Something went wrong. Please try again."}, status=500)
-
 
 class ChatHistoryView(APIView):
     permission_classes = [IsAuthenticated]

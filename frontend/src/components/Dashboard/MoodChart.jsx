@@ -25,12 +25,15 @@ function CustomTooltip({ active, payload }) {
 }
 
 export default function MoodChart({ moodHistory }) {
+  // ✅ Updated empty state
   if (!moodHistory || moodHistory.length === 0) {
     return (
-      <div className="bg-white border border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center h-48 text-center text-slate-400">
-        <span className="text-3xl mb-2">📈</span>
-        <p className="text-sm">No mood data yet.</p>
-        <p className="text-sm">Start chatting to see your mood trend.</p>
+      <div className="flex flex-col items-center justify-center h-48 text-center">
+        <div className="text-4xl mb-3">📈</div>
+        <p className="text-gray-400 text-sm">No mood data yet.</p>
+        <p className="text-gray-300 text-xs mt-1">
+          Start chatting to track how you feel.
+        </p>
       </div>
     );
   }

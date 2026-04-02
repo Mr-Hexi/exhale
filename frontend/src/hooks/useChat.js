@@ -4,12 +4,12 @@ import api from "../api/axios"
 export function useChat() {
   const [messages, setMessages] = useState([])
   const [smartAction, setSmartAction] = useState(null)
+  const [cbtPrompt, setCbtPrompt] = useState(null) // ✅ added
   const [isCrisis, setIsCrisis] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
   const [conversationId, setConversationId] = useState(null)
 
-  // ✅ defined BEFORE useEffect so it's in scope when called
   const loadHistory = useCallback(async (id) => {
     try {
       const res = await api.get(`/api/chat/${id}/history/`)
@@ -40,7 +40,7 @@ export function useChat() {
     }
 
     initConversation()
-  }, [loadHistory])  // ✅ loadHistory in dependency array since it's used inside
+  }, [loadHistory])
 
   const sendMessage = useCallback(async (text) => {
     if (!conversationId || !text.trim()) return
@@ -52,11 +52,18 @@ export function useChat() {
         content: text,
       })
 
-      const { user_message, ai_message, smart_action, is_crisis } = res.data
+      const {
+        user_message,
+        ai_message,
+        smart_action,
+        is_crisis,
+        cbt_prompt,
+      } = res.data
 
       setMessages((prev) => [...prev, user_message, ai_message])
       setSmartAction(smart_action || null)
       setIsCrisis(is_crisis || false)
+      setCbtPrompt(cbt_prompt ?? null) // ✅ added
     } catch (err) {
       setError(err.response?.data?.error || "Something went wrong. Please try again.")
     } finally {
@@ -70,6 +77,7 @@ export function useChat() {
       await api.delete(`/api/chat/${conversationId}/clear/`)
       setMessages([])
       setSmartAction(null)
+      setCbtPrompt(null) // ✅ reset here too (good practice)
       setIsCrisis(false)
       setError(null)
     } catch (err) {
@@ -80,6 +88,7 @@ export function useChat() {
   return {
     messages,
     smartAction,
+    cbtPrompt, // ✅ exported
     isCrisis,
     isLoading,
     error,

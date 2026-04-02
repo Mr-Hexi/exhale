@@ -150,3 +150,9 @@ Write a short, empathetic AI insight (3-5 sentences):
 - End with one open reflection question
 Do not diagnose. Do not give medical advice.
 """
+
+
+CBT_FOLLOW_UPS = {
+    "sad": "What do you think caused this feeling today?",
+    "anxious": "Is there one part of this worry that you do have some control over?",
+}

@@ -2,6 +2,7 @@ import logging
 from prompts.v1 import SYSTEM_PROMPTS, SMART_ACTIONS
 from services.llm_client import get_completion
 from chat.exceptions import LLMAPIError
+from prompts.v1 import CBT_FOLLOW_UPS
 
 logger = logging.getLogger("exhale")
 
@@ -56,3 +57,5 @@ def get_smart_action(emotion: str) -> dict | None:
     Returns None if emotion not found — never raises.
     """
     return SMART_ACTIONS.get(emotion, None)
+
+
