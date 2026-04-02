@@ -1,0 +1,425 @@
+﻿{
+  "info": {
+    "_postman_id": "6f84b68e-22cf-4f7c-90d4-708cf5a4d85b",
+    "name": "Exhale Journal API Checks",
+    "description": "Collection to test journal create/list/detail/update/delete/insight flows.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Auth - Login Primary User",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/login/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login",
+            ""
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Login status 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const data = pm.response.json();",
+              "if (data.access) pm.environment.set('accessToken', data.access);",
+              "if (data.refresh) pm.environment.set('refreshToken', data.refresh);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - Login Other User (for 404 ownership test)",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{otherUsername}}\",\n  \"password\": \"{{otherPassword}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/login/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login",
+            ""
+          ]
+        },
+        "description": "Optional: run this to set otherUserAccessToken before the ownership 404 test."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Other-user login status 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const data = pm.response.json();",
+              "if (data.access) pm.environment.set('otherUserAccessToken', data.access);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST /api/journal/ create entry with emotion",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"content\": \"I had a rough day\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/journal/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "journal",
+            ""
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Create returns 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "const data = pm.response.json();",
+              "if (data.id !== undefined) pm.environment.set('journalEntryId', data.id);",
+              "pm.test('Entry has id/content/emotion', function () {",
+              "  pm.expect(data).to.have.property('id');",
+              "  pm.expect(data).to.have.property('content');",
+              "  pm.expect(data).to.have.property('emotion');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET /api/journal/ list reverse chronological",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/journal/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "journal",
+            ""
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('List returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const data = pm.response.json();",
+              "pm.test('List response is array', function () {",
+              "  pm.expect(Array.isArray(data)).to.eql(true);",
+              "});",
+              "pm.test('Reverse chronological (if 2+ entries)', function () {",
+              "  if (Array.isArray(data) && data.length > 1) {",
+              "    const t0 = new Date(data[0].created_at).getTime();",
+              "    const t1 = new Date(data[1].created_at).getTime();",
+              "    pm.expect(t0 >= t1).to.eql(true);",
+              "  }",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET /api/journal/{{journalEntryId}}/ with other user token -> 404",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{otherUserAccessToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/journal/{{journalEntryId}}/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "journal",
+            "{{journalEntryId}}",
+            ""
+          ]
+        },
+        "description": "Requires otherUserAccessToken belonging to a different user."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Returns 404 (not 403)', function () {",
+              "  pm.response.to.have.status(404);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "PUT /api/journal/{{journalEntryId}}/ update + re-detect emotion",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"content\": \"Today felt heavy but I am trying to stay hopeful\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/journal/{{journalEntryId}}/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "journal",
+            "{{journalEntryId}}",
+            ""
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Update returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const data = pm.response.json();",
+              "pm.test('Content updated', function () {",
+              "  pm.expect(data.content).to.eql('Today felt heavy but I am trying to stay hopeful');",
+              "});",
+              "pm.test('Emotion present after update', function () {",
+              "  pm.expect(data).to.have.property('emotion');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST /api/journal/{{journalEntryId}}/insight/ generate + save insight",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/journal/{{journalEntryId}}/insight/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "journal",
+            "{{journalEntryId}}",
+            "insight",
+            ""
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Insight returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const data = pm.response.json();",
+              "pm.test('Insight returned', function () {",
+              "  pm.expect(data).to.have.property('insight');",
+              "  pm.expect(typeof data.insight).to.eql('string');",
+              "  pm.expect(data.insight.length > 0).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST /api/journal/999/insight/ -> 404",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/journal/999/insight/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "journal",
+            "999",
+            "insight",
+            ""
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Returns 404', function () {",
+              "  pm.response.to.have.status(404);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "DELETE /api/journal/{{journalEntryId}}/ -> 204",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/journal/{{journalEntryId}}/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "journal",
+            "{{journalEntryId}}",
+            ""
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Delete returns 204', function () {",
+              "  pm.response.to.have.status(204);",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "journalEntryId",
+      "value": "1"
+    },
+    {
+      "key": "otherUsername",
+      "value": "postman_other_user"
+    },
+    {
+      "key": "otherPassword",
+      "value": "StrongPass123!"
+    }
+  ]
+}

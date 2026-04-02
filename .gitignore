@@ -27,6 +27,7 @@ Thumbs.db
 
 # cmds
 commands.txt    
+issues.txt
 
 # frontend
 node_modules/

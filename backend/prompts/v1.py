@@ -138,3 +138,15 @@ SMART_ACTIONS = {
         "content": "You seem happy right now — want to capture this feeling in your journal?",
     },
 }
+
+
+JOURNAL_INSIGHT_PROMPT = """
+The user wrote this journal entry: "{entry}"
+Detected emotion: {emotion}
+
+Write a short, empathetic AI insight (3-5 sentences):
+- Reflect what you notice in their writing
+- Offer one gentle observation or reframe
+- End with one open reflection question
+Do not diagnose. Do not give medical advice.
+"""

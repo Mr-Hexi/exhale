@@ -26,5 +26,6 @@ urlpatterns = [
     path("api/emotion/", include("emotion.urls")),
     path("api/mood/", include("mood.urls")),
     path("api/knowledge/", include("knowledge.urls")),
-    # path("api/journal/", include("journal.urls")),
+    path("api/journal/", include("journal.urls")),
+    path("api/mood/", include("mood.urls")),
 ]

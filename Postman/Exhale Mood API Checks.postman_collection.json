@@ -1,0 +1,245 @@
+﻿{
+  "info": {
+    "_postman_id": "2abde51f-0fd2-42e0-84aa-1fc3d4ef99d2",
+    "name": "Exhale Mood API Checks",
+    "description": "Collection for mood endpoint checks: valid/invalid checkin, empty history, and weekly insight with insufficient data.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Auth Helper - Login",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/login/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login",
+            ""
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const data = pm.response.json();",
+              "if (data.access) pm.environment.set('accessToken', data.access);",
+              "if (data.refresh) pm.environment.set('refreshToken', data.refresh);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST /api/mood/checkin/ valid emotion (201)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"emotion\": \"happy\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/mood/checkin/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "mood",
+            "checkin",
+            ""
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Returns 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "const data = pm.response.json();",
+              "pm.test('Success message returned', function () {",
+              "  pm.expect(data.message).to.eql('Check-in logged.');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST /api/mood/checkin/ invalid emotion (400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"emotion\": \"confused\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/mood/checkin/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "mood",
+            "checkin",
+            ""
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Returns 400', function () {",
+              "  pm.response.to.have.status(400);",
+              "});",
+              "const data = pm.response.json();",
+              "pm.test('Error payload returned', function () {",
+              "  pm.expect(data).to.have.property('error');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET /api/mood/history/ empty list or list response",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/mood/history/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "mood",
+            "history",
+            ""
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Returns 200 (not 500)', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const data = pm.response.json();",
+              "pm.test('Response is an array', function () {",
+              "  pm.expect(Array.isArray(data)).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET /api/mood/weekly-insight/ insufficient data message",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/mood/weekly-insight/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "mood",
+            "weekly-insight",
+            ""
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const data = pm.response.json();",
+              "pm.test('Insight key exists', function () {",
+              "  pm.expect(data).to.have.property('insight');",
+              "});",
+              "pm.test('Insufficient data message if no logs', function () {",
+              "  if (typeof data.insight === 'string') {",
+              "    pm.expect(data.insight.toLowerCase()).to.include('not enough mood data');",
+              "  }",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000"
+    }
+  ]
+}
