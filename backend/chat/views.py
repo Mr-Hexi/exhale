@@ -2,11 +2,10 @@ import logging
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from chat.models import Conversation, ChatMessage, AIPrompt
+from chat.models import Conversation, ChatMessage
 from chat.serializers import ConversationSerializer, ChatMessageSerializer, SendMessageSerializer
 from chat.exceptions import LLMAPIError
 from chat.graph import chat_graph
-from chat.services.llm_chat_service import should_send_cbt_followup
 from mood.models import MoodLog
 import queue
 import threading
@@ -70,11 +69,9 @@ class SendMessageView(APIView):
                         config={"configurable": {"thread_id": str(conversation.id), "stream_queue": q}},
                     )
 
-                    emotion    = result["emotion"]
+                    emotion = result["emotion"]
                     confidence = result["confidence"]
-                    is_crisis  = result["is_crisis"]
-                    stage      = result.get("stage")
-                    response_policy = result.get("response_policy")
+                    is_crisis = result["is_crisis"]
 
                     user_msg = ChatMessage.objects.create(
                         user=request.user,
@@ -99,62 +96,36 @@ class SendMessageView(APIView):
                         source="chat",
                     )
 
-                    # CBT follow-up
+                    # CBT follow-ups are temporarily disabled.
                     cbt_prompt_data = None
-                    if should_send_cbt_followup(
-                        emotion=emotion,
-                        is_crisis=is_crisis,
-                        stage=stage,
-                        current_text=content,
-                        response_policy=response_policy,
-                    ):
-                        recent_assistant_contents = list(
-                            ChatMessage.objects.filter(
-                                conversation=conversation,
-                                role="assistant",
-                            ).order_by("-timestamp")[:3].values_list("content", flat=True)
-                        )
-
-                        # Fetch CBT prompt from DB
-                        cbt_prompt_obj = AIPrompt.objects.filter(name="cbt_prompt", emotion=emotion).first()
-                        if cbt_prompt_obj:
-                            cbt_text = cbt_prompt_obj.content
-                            already_sent = any(
-                                msg == cbt_text
-                                for msg in recent_assistant_contents
-                            )
-
-                            if not already_sent:
-                                ChatMessage.objects.create(
-                                    user=request.user,
-                                    conversation=conversation,
-                                    content=cbt_text,
-                                    role="assistant",
-                                )
-                                cbt_prompt_data = {"content": cbt_text}
-                                logger.info(
-                                    "CBT follow-up sent — user_id=%s conversation_id=%s emotion=%s",
-                                    request.user.id, conversation.id, emotion,
-                                )
 
                     logger.info(
-                        "Message sent — user_id=%s conversation_id=%s emotion=%s confidence=%.2f is_crisis=%s",
-                        request.user.id, conversation.id, emotion, confidence, is_crisis,
+                        "Message sent - user_id=%s conversation_id=%s emotion=%s confidence=%.2f is_crisis=%s",
+                        request.user.id,
+                        conversation.id,
+                        emotion,
+                        confidence,
+                        is_crisis,
                     )
 
-                    q.put({"type": "done", "result": {
-                        "user_message": ChatMessageSerializer(user_msg).data,
-                        "ai_message":   ChatMessageSerializer(ai_msg).data,
-                        "smart_action": result["smart_action"],
-                        "is_crisis":    is_crisis,
-                        "cbt_prompt":   cbt_prompt_data,
-                    }})
+                    q.put(
+                        {
+                            "type": "done",
+                            "result": {
+                                "user_message": ChatMessageSerializer(user_msg).data,
+                                "ai_message": ChatMessageSerializer(ai_msg).data,
+                                "smart_action": result["smart_action"],
+                                "is_crisis": is_crisis,
+                                "cbt_prompt": cbt_prompt_data,
+                            },
+                        }
+                    )
 
                 except LLMAPIError as e:
-                    logger.error("LLM API failed — user_id=%s: %s", request.user.id, str(e))
+                    logger.error("LLM API failed - user_id=%s: %s", request.user.id, str(e))
                     q.put({"type": "error", "error": "AI service temporarily unavailable."})
                 except Exception as e:
-                    logger.error("Unexpected error in bg_thread — user_id=%s: %s", request.user.id, str(e))
+                    logger.error("Unexpected error in bg_thread - user_id=%s: %s", request.user.id, str(e))
                     q.put({"type": "error", "error": "Something went wrong. Please try again."})
 
             threading.Thread(target=bg_thread).start()
@@ -173,15 +144,16 @@ class SendMessageView(APIView):
 
             response = StreamingHttpResponse(generate(), content_type="text/event-stream")
             response["Cache-Control"] = "no-cache"
-            response["X-Accel-Buffering"] = "no" # For Nginx to pass chunked stream immediately
+            response["X-Accel-Buffering"] = "no"  # For Nginx to pass chunked stream immediately
             return response
 
         except LLMAPIError as e:
-            logger.error("LLM API failed — user_id=%s: %s", request.user.id, str(e))
+            logger.error("LLM API failed - user_id=%s: %s", request.user.id, str(e))
             return Response({"error": "AI service temporarily unavailable."}, status=503)
         except Exception as e:
-            logger.error("Unexpected error in SendMessageView — user_id=%s: %s", request.user.id, str(e))
+            logger.error("Unexpected error in SendMessageView - user_id=%s: %s", request.user.id, str(e))
             return Response({"error": "Something went wrong. Please try again."}, status=500)
+
 
 class ChatHistoryView(APIView):
     permission_classes = [IsAuthenticated]
@@ -193,8 +165,7 @@ class ChatHistoryView(APIView):
             return Response({"error": "Conversation not found."}, status=404)
 
         messages = (
-            ChatMessage.objects
-            .filter(conversation=conversation)
+            ChatMessage.objects.filter(conversation=conversation)
             .order_by("timestamp")
             .only("id", "content", "role", "emotion", "emotion_confidence", "timestamp")
         )
@@ -206,7 +177,7 @@ class ClearChatView(APIView):
 
     def delete(self, request, conversation_id):
         try:
-            logger.info("Clearing chat — user_id=%s conversation_id=%s", request.user.id, conversation_id)
+            logger.info("Clearing chat - user_id=%s conversation_id=%s", request.user.id, conversation_id)
             conversation = Conversation.objects.get(id=conversation_id, user=request.user)
         except Conversation.DoesNotExist:
             return Response({"error": "Conversation not found."}, status=404)
@@ -233,11 +204,9 @@ class ConversationDetailView(APIView):
 
     def delete(self, request, conversation_id):
         try:
-            logger.info("Deleting conversation — user_id=%s conversation_id=%s", request.user.id, conversation_id)
+            logger.info("Deleting conversation - user_id=%s conversation_id=%s", request.user.id, conversation_id)
             conversation = Conversation.objects.get(id=conversation_id, user=request.user)
             conversation.delete()
             return Response({"message": "Conversation deleted."}, status=200)
         except Conversation.DoesNotExist:
             return Response({"error": "Conversation not found."}, status=404)
-
-

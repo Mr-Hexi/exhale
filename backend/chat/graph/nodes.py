@@ -6,7 +6,6 @@ from chat.services.llm_chat_service import (
     enforce_response_policy,
     get_empathetic_response,
     get_empathetic_response_stream,
-    get_smart_action,
     is_existential_question,
     is_deep_stage,
     parse_response_policy,
@@ -196,12 +195,6 @@ def respond_node(state: ChatState, config: RunnableConfig) -> ChatState:
     if can_ask_question:
         state["last_question"] = _extract_last_question(state.get("ai_response"))
 
-    if response_policy.get("no_extra_prompt"):
-        state["smart_action"] = None
-    elif state.get("stage") in ["hopelessness", "burnout"]:
-        state["smart_action"] = None
-    elif force_answer:
-        state["smart_action"] = None
-    else:
-        state["smart_action"] = get_smart_action(state["emotion"])
+    # Temporarily disable smart actions for all chatbot responses.
+    state["smart_action"] = None
     return state

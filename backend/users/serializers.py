@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
 
 User = get_user_model()
 Topic = User.topics.rel.model if hasattr(User.topics, 'rel') else User.topics.field.related_model # Reliable way to get Topic model without circular import
@@ -33,13 +34,23 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = ["username", "email", "password"]
 
     def validate_username(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Username is required.")
         if User.objects.filter(username=value).exists():
             raise serializers.ValidationError("Username already taken.")
         return value
 
     def validate_email(self, value):
-        if User.objects.filter(email=value).exists():
+        value = value.strip().lower()
+        if not value:
+            raise serializers.ValidationError("Email is required.")
+        if User.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError("Email already registered.")
+        return value
+
+    def validate_password(self, value):
+        validate_password(value)
         return value
 
     def create(self, validated_data):

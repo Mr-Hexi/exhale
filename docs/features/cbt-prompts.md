@@ -1,38 +1,34 @@
 # CBT Follow-Up Prompts
 
+## Status
+Temporarily disabled as of 2026-04-04.
+
 ## What it does
-After the AI responds to a sad or anxious message, it appends a short
-cognitive-behavioural therapy (CBT)-style reflection question to gently
-encourage the user to examine the root of their feeling.
+This feature previously appended a short CBT-style reflection question after
+some assistant responses.
+
+Current behavior: no CBT follow-up message is appended for new messages.
 
 ## How it works
-After the main AI response is saved, `SendMessageView` checks the last 3
-assistant messages in the current conversation. If none of them match a known
-CBT prompt string, it creates a second assistant `ChatMessage` with the
-follow-up text and returns it under the `cbt_prompt` key.
+`SendMessageView` now sets `cbt_prompt` to `null` and does not create a second
+assistant message for CBT follow-up.
 
-The frontend renders it as a distinct "Reflection" bubble (indigo, italic)
-so users can visually distinguish it from the main AI response.
+The frontend no longer appends any `cbt_prompt` bubble from streamed response
+completion.
 
 ## API endpoints used
-- `POST /api/chat/<id>/send/` — response now includes `cbt_prompt: { content } | null`
+- `POST /api/chat/<id>/send/` - response includes `cbt_prompt`, currently `null`
 
 ## Key files
-- `prompts/v1.py` — `CBT_FOLLOW_UPS` dict
-- `chat/services/llm_chat_service.py` — `get_cbt_followup()`
-- `chat/views.py` — `SendMessageView` (append logic)
-- `frontend/src/hooks/useChat.js` — `cbtPrompt` state
-- `frontend/src/pages/ChatPage.jsx` — Reflection bubble render
+- `backend/chat/views.py` - `SendMessageView` (`cbt_prompt` disabled for now)
+- `frontend/src/hooks/useChat.js` - no `cbt_prompt` append handling
 
 ## Edge cases handled
-- Only triggers on first occurrence — recent history checked before sending
-- Returns `null` for happy and angry — no CBT prompt shown
-- CBT message is a full `ChatMessage` record — appears in history on reload
-- Crisis path always returns `cbt_prompt: null`
+- `cbt_prompt` is always `null` for new responses.
+- Existing historical CBT follow-up messages (already persisted) remain in chat history.
 
 ## Logging
-- INFO logged when CBT follow-up is sent (user id, emotion)
+- No CBT follow-up send logging is emitted while disabled.
 
 ## Known limitations
-- "Recent" is defined as last 3 assistant messages — not time-based
-- Does not detect paraphrased re-asks of the same CBT question
+- This doc reflects temporary behavior. Re-enable details should be restored if CBT follow-ups are enabled again.

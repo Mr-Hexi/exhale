@@ -198,7 +198,7 @@ export function useChat() {
                   return newArr;
                 });
               } else if (data.type === 'done') {
-                const { user_message, ai_message, smart_action, is_crisis, cbt_prompt } = data.result;
+                const { user_message, ai_message, is_crisis } = data.result;
                 setMessages(prev => {
                   if (!prev) return prev;
                   const newArr = [...prev];
@@ -210,13 +210,9 @@ export function useChat() {
                     newArr.push(user_message, ai_message);
                   }
                   
-                  if (cbt_prompt) {
-                    // Add an ID and role to avoid rendering issues if missing
-                    newArr.push({ ...cbt_prompt, id: `cbt-${Date.now()}`, role: 'assistant' });
-                  }
                   return newArr;
                 });
-                setSmartAction(smart_action || null);
+                setSmartAction(null);
                 setIsCrisis(is_crisis || false);
               } else if (data.type === 'error') {
                 setError(data.error);
