@@ -8,6 +8,12 @@ class KnowledgeChunk(models.Model):
         ("breathing_grounding", "Breathing / Grounding"),
         ("reflection_question", "Reflection Question"),
         ("psychoeducation",     "Psychoeducation"),
+        ("insight",             "Insight"),
+        ("reframe",             "Reframe"),
+        ("validation",          "Validation"),
+        ("perspective",         "Perspective"),
+        ("question",            "Question"),
+        ("technique",           "Technique"),
         ("crisis_resource",     "Crisis Resource"),
     ]
 

@@ -20,6 +20,7 @@ class KnowledgeSearchView(APIView):
         results = retrieve(
             query_text=data["query"],
             emotion=data["emotion"],
+            stage=data.get("stage", "general"),
             is_crisis=data["is_crisis"],
         )
         return Response({"results": results})

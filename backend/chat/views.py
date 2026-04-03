@@ -53,6 +53,7 @@ class SendMessageView(APIView):
                         {
                             "text": content,
                             "emotion": None,
+                            "stage": None,
                             "confidence": None,
                             "is_crisis": False,
                             "context": [],

@@ -6,6 +6,32 @@ from chat.models import AIPrompt
 
 logger = logging.getLogger("exhale")
 
+CONTEXT_LABELS = {
+    "Insight", "Technique", "Perspective", "Question", "Validation", "Reframe", "Resource"
+}
+
+
+def _format_context_block(context: list[str]) -> str:
+    lines: list[str] = []
+    for raw_item in context:
+        if not raw_item:
+            continue
+        item = raw_item.strip()
+        if not item:
+            continue
+
+        label = item.split(":", 1)[0].strip()
+        if label in CONTEXT_LABELS and ":" in item:
+            lines.append(f"- {item}")
+        else:
+            lines.append(f"- Insight: {item}")
+
+    if not lines:
+        return ""
+
+    return "Relevant insights and support patterns:\n" + "\n".join(lines)
+
+
 def build_messages(
     current_text: str,
     emotion: str,
@@ -73,10 +99,16 @@ def build_messages(
         system_prompt = f"{system_prompt}\n\n{user_context_str}"
 
     if context:
-        context_block = "\n\n".join(context)
+        context_block = _format_context_block(context)
+    else:
+        context_block = ""
+
+    if context_block:
         system_prompt = (
             f"{system_prompt}\n\n"
-            f"Here are some relevant techniques and insights you can draw from:\n{context_block}"
+            "CONTEXT BLOCK:\n"
+            f"{context_block}\n"
+            "Use this block as supporting perspective, and avoid repeating the same pattern in one reply."
         )
 
     messages.append({"role": "system", "content": system_prompt})

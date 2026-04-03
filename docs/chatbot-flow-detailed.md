@@ -5,6 +5,7 @@
 Project-level routing:
 - `backend/exhale/urls.py`
   - `path("api/chat/", include("chat.urls"))`
+  - `path("api/knowledge/", include("knowledge.urls"))`
 
 Chat app routes:
 - `backend/chat/urls.py`
@@ -14,7 +15,11 @@ Chat app routes:
   - `GET /api/chat/<conversation_id>/history/` -> `ChatHistoryView`
   - `DELETE /api/chat/<conversation_id>/clear/` -> `ClearChatView`
 
-The main chatbot runtime starts at:
+Knowledge route used for direct retrieval testing:
+- `POST /api/knowledge/search/` -> `KnowledgeSearchView`
+  - payload now supports: `query`, `emotion`, `stage`, `is_crisis`
+
+Main chatbot runtime starts at:
 - `SendMessageView.post()` in `backend/chat/views.py`
 
 ---
@@ -28,7 +33,7 @@ When a user sends a chat message:
 3. A `queue.Queue()` is created for streaming tokens/events.
 4. A background thread (`bg_thread`) is started.
 5. Inside `bg_thread`, `chat_graph.invoke(...)` is called with:
-   - input state (`text`, `emotion`, `is_crisis`, `context`, personalization fields, etc.)
+   - input state (`text`, `emotion`, `stage`, `is_crisis`, `context`, personalization fields, etc.)
    - config: `thread_id = conversation.id`, `stream_queue = q`
 6. While the graph runs, response tokens are pushed into queue as `{"type":"chunk","content":"..."}`.
 7. Main request thread returns `StreamingHttpResponse` (`text/event-stream`) and yields queue items continuously.
@@ -74,6 +79,7 @@ Defined in `backend/chat/graph/state.py`.
 Fields used by runtime:
 - input/context: `text`, `conversation_id`, `user_id`, `user_nickname`, `user_age`, `user_topics`
 - emotion path: `emotion`, `confidence`, `is_crisis`
+- stage path: `stage` (`general`, `self_doubt`, `burnout`, `hopelessness`)
 - retrieval path: `context`
 - response path: `ai_response`, `smart_action`
 - question-control path: `last_question`
@@ -97,7 +103,7 @@ Behavior:
   - sets `is_crisis=True`, `emotion="sad"`, `confidence=1.0`
   - graph routes directly to `respond`
 - otherwise:
-  - state unchanged for crisis fields, graph continues to emotion detection
+  - graph continues to emotion detection
 
 ### B) `detect_emotion_node(state)`
 File: `backend/chat/graph/nodes.py`
@@ -117,25 +123,38 @@ Inside `classify_emotion()` (`backend/emotion/services/emotion_service.py`):
 
 State update in node:
 - `state["emotion"] = result["emotion"]`
-- `state["confidence"] = result.get("confidence", 1.0)`
+- `state["confidence"] = result.get("confidence", result.get("emotion_confidence", 1.0))`
 - `state["is_crisis"] = result.get("is_crisis", False)`
+- `state["stage"] = result.get("stage") or _detect_stage(state["text"], state["emotion"])`
 
-Note:
-- `classify_emotion()` currently returns `emotion_confidence` key, while node reads `confidence`; this means node often falls back to default `1.0`.
+Stage detection behavior:
+- Uses explicit stage from classifier if present.
+- Otherwise uses keyword heuristics (`burnout`, `hopelessness`, `self_doubt`).
+- Falls back to `"general"`.
 
 ### C) `retrieve_context_node(state)`
 File: `backend/chat/graph/nodes.py`
 
 Calls:
-- `retrieve(query_text, emotion, top_k=3, is_crisis=...)` from `knowledge.services.retrieval`
+- `retrieve(query_text, emotion, stage, top_k=3, is_crisis=...)` from `knowledge.services.retrieval`
 
 Inside `retrieve()` (`backend/knowledge/services/retrieval.py`):
 1. Lazy-loads sentence-transformer model (`all-MiniLM-L6-v2`) once.
 2. Embeds user query text.
-3. DB query on `KnowledgeChunk` with pgvector cosine distance:
+3. Resolves stage:
+   - uses passed stage if not `general`
+   - otherwise infers stage from query keywords.
+4. DB vector search:
    - crisis path: only `category="crisis_resource"`
-   - normal path: excludes crisis resources and filters by matching emotion or no emotion tag
-4. Returns top-k chunk contents list.
+   - normal path: excludes crisis resources and gets top semantic candidates (candidate pool).
+5. Candidate reranking score:
+   - `semantic_similarity`
+   - `+ emotion bonus` (exact / related / untagged)
+   - `+ stage bonus` (keyword and stage-category boost)
+6. Diversity filter:
+   - skips near-duplicate chunks using embedding cosine similarity threshold.
+7. Labels final context lines (for example `Insight: ...`, `Question: ...`, `Reframe: ...`).
+8. Returns top-k labeled chunks.
 
 Result:
 - `state["context"] = [retrieved chunk strings...]`
@@ -179,14 +198,17 @@ How prompts are composed:
    - stage modifier: `AIPrompt(name="stage_prompt", emotion=<stage>)`
    - anti-repetition: `AIPrompt(name="anti_repetition_prompt")`
 3. Appends personalization text (nickname, age bracket, topics).
-4. Appends retrieved context block (if any).
+4. Formats retrieval into structured `CONTEXT BLOCK`:
+   - bullet list
+   - recognized labels: `Insight`, `Technique`, `Perspective`, `Question`, `Validation`, `Reframe`, `Resource`
+   - unlabeled lines are defaulted to `Insight: ...`
 5. Adds system message.
 6. If user text contains `?` (and not crisis), adds `question_handling_prompt`.
 7. Appends recent history (`history_limit=6`).
 8. Appends current user message.
 9. Question control:
    - if `can_ask_question=True`: appends `question_variety_prompt`
-   - else: appends explicit instruction to not ask a follow-up question
+   - else: appends explicit instruction to not ask a follow-up question.
 
 ---
 
@@ -244,7 +266,40 @@ Outside thread in `post()`:
 
 ---
 
-## 10) Sequence diagram (full chat flow)
+## 10) Knowledge base schema + seeding updates
+
+### A) Knowledge categories expanded
+File: `backend/knowledge/models.py`
+
+`KnowledgeChunk.category` now includes both legacy and newer reasoning-pattern categories:
+- Legacy: `cbt_technique`, `breathing_grounding`, `reflection_question`, `psychoeducation`, `crisis_resource`
+- New: `insight`, `reframe`, `validation`, `perspective`, `question`, `technique`
+
+Migration:
+- `backend/knowledge/migrations/0003_alter_knowledgechunk_category.py`
+
+### B) Seeding behavior updated
+File: `backend/knowledge/management/commands/seed_knowledge.py`
+
+`seed_knowledge` now:
+- seeds a more diverse corpus (insights/reframes/validations/questions/techniques + crisis resources)
+- uses `update_or_create` keyed by `content` (idempotent sync behavior)
+- updates embeddings for existing matching chunks instead of skipping when rows exist
+
+### C) Retrieval API serializer update
+Files:
+- `backend/knowledge/serializers.py`
+- `backend/knowledge/views.py`
+
+`KnowledgeSearchSerializer` now accepts:
+- `stage` in `["general", "self_doubt", "burnout", "hopelessness"]`
+
+The view forwards `stage` to retrieval:
+- `retrieve(query_text, emotion, stage, is_crisis)`
+
+---
+
+## 11) Sequence diagram (full chat flow)
 
 ```mermaid
 sequenceDiagram
@@ -294,14 +349,14 @@ sequenceDiagram
         G->>N2: detect_emotion_node(state)
         N2->>E: classify_emotion(text)
         E->>E: ML predict (fallback LLM classify when low confidence)
-        N2-->>G: emotion/confidence/is_crisis
+        N2-->>G: emotion/confidence/stage/is_crisis
         G->>N3: retrieve_context_node(state)
-        N3->>K: retrieve(query_text, emotion, top_k, is_crisis)
-        K->>DB: Vector similarity query on KnowledgeChunk
-        N3-->>G: context chunks
+        N3->>K: retrieve(query_text, emotion, stage, top_k, is_crisis)
+        K->>DB: Vector candidate search + score rerank + diversity filter
+        N3-->>G: labeled context chunks
         G->>N4: respond_node(state, config)
         N4->>DB: Load ChatMessage history
-        N4->>C: build_messages(..., context, can_ask_question)
+        N4->>C: build_messages(..., context_block, can_ask_question)
         C->>DB: Load dynamic prompts (AIPrompt)
         N4->>C: get_empathetic_response_stream(messages, queue)
         C->>L: get_completion_stream(...)
@@ -327,4 +382,3 @@ sequenceDiagram
     V-->>FE: SSE done event
     FE-->>U: Final chat response rendered
 ```
-

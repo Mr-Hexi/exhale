@@ -12,6 +12,18 @@ from chat.graph.state import ChatState
 
 logger = logging.getLogger("exhale")
 
+STAGE_KEYWORDS = {
+    "burnout": (
+        "burnout", "exhausted", "drained", "tired", "overwhelmed", "can't keep up", "too much"
+    ),
+    "hopelessness": (
+        "hopeless", "stuck", "no point", "nothing will change", "can't go on", "what's the point"
+    ),
+    "self_doubt": (
+        "not good enough", "self doubt", "self-doubt", "imposter", "fear of judgment", "judge me"
+    ),
+}
+
 
 def should_ask_question(state: ChatState) -> bool:
     return state.get("last_question") is None
@@ -24,6 +36,16 @@ def _extract_last_question(text: str | None) -> str | None:
     if not matches:
         return None
     return matches[-1].strip()
+
+
+def _detect_stage(text: str, emotion: str | None) -> str:
+    text_lower = text.lower()
+    for stage_name, keywords in STAGE_KEYWORDS.items():
+        if any(keyword in text_lower for keyword in keywords):
+            return stage_name
+    if emotion == "sad" and any(token in text_lower for token in ("stuck", "can't", "never", "nothing")):
+        return "hopelessness"
+    return "general"
 
 
 def crisis_check_node(state: ChatState) -> ChatState:
@@ -41,8 +63,9 @@ def crisis_check_node(state: ChatState) -> ChatState:
 def detect_emotion_node(state: ChatState) -> ChatState:
     result = classify_emotion(state["text"])
     state["emotion"] = result["emotion"]
-    state["confidence"] = result.get("confidence", 1.0)
+    state["confidence"] = result.get("confidence", result.get("emotion_confidence", 1.0))
     state["is_crisis"] = result.get("is_crisis", False)
+    state["stage"] = result.get("stage") or _detect_stage(state["text"], state["emotion"])
     return state
 
 
@@ -51,6 +74,7 @@ def retrieve_context_node(state: ChatState) -> ChatState:
     state["context"] = retrieve(
         query_text=state["text"],
         emotion=state["emotion"],
+        stage=state.get("stage", "general"),
         top_k=3,
         is_crisis=state["is_crisis"],
     )
