@@ -1,0 +1,45 @@
+name: Deploy Exhale
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Copy files to VM
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          source: "."
+          target: "/home/azureuser/exhale"
+          rm: false
+
+      - name: Deploy on VM
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            set -e
+            cd /home/azureuser/exhale/backend
+            source venv/bin/activate
+            pip install -r requirements.txt --quiet
+            export $(cat .env | grep -v '#' | xargs)
+            python manage.py migrate --noinput
+            pm2 restart exhale-backend
+
+            cd /home/azureuser/exhale/frontend
+            npm install --silent
+            npm run build
+
+            sudo systemctl reload nginx
+            echo "Deployment complete"
