@@ -16,7 +16,8 @@ def build_messages(
     is_crisis: bool = False,
     user_nickname: str = None,
     user_age: str = None,
-    user_topics: list = None
+    user_topics: list = None,
+    can_ask_question: bool = True,
 ) -> list:
     """
     Build the messages list for the LLM call dynamically using DB Prompts.
@@ -92,6 +93,24 @@ def build_messages(
         messages.append({"role": msg.role, "content": msg.content})
 
     messages.append({"role": "user", "content": current_text})
+    
+    if can_ask_question:
+        try:
+            messages.append(
+                {
+                    "role": "system",
+                    "content": AIPrompt.objects.get(name="question_variety_prompt").content,
+                }
+            )
+        except AIPrompt.DoesNotExist:
+            pass
+    else:
+        messages.append(
+            {
+                "role": "system",
+                "content": "Do not ask a follow-up question in this reply. Provide support without ending in a question.",
+            }
+        )
     return messages
 
 

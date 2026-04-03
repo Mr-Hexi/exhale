@@ -1,4 +1,5 @@
 import logging
+import re
 from emotion.services.emotion_service import classify_emotion
 from chat.services.llm_chat_service import (
     build_messages,
@@ -10,6 +11,19 @@ from chat.models import ChatMessage, AIPrompt
 from chat.graph.state import ChatState
 
 logger = logging.getLogger("exhale")
+
+
+def should_ask_question(state: ChatState) -> bool:
+    return state.get("last_question") is None
+
+
+def _extract_last_question(text: str | None) -> str | None:
+    if not text:
+        return None
+    matches = re.findall(r"([^?]*\?)", text)
+    if not matches:
+        return None
+    return matches[-1].strip()
 
 
 def crisis_check_node(state: ChatState) -> ChatState:
@@ -56,6 +70,8 @@ def respond_node(state: ChatState, config: RunnableConfig) -> ChatState:
         .only("role", "content")
     )
 
+    can_ask_question = should_ask_question(state)
+
     messages = build_messages(
         current_text=state["text"],
         emotion=state["emotion"],
@@ -67,6 +83,7 @@ def respond_node(state: ChatState, config: RunnableConfig) -> ChatState:
         user_nickname=state.get("user_nickname"),
         user_age=state.get("user_age"),
         user_topics=state.get("user_topics"),
+        can_ask_question=can_ask_question,
     )
 
     stream_queue = config.get("configurable", {}).get("stream_queue")
@@ -91,6 +108,9 @@ def respond_node(state: ChatState, config: RunnableConfig) -> ChatState:
             state["ai_response"] = get_empathetic_response(messages)
     except LLMAPIError:
         raise
+
+    if can_ask_question:
+        state["last_question"] = _extract_last_question(state.get("ai_response"))
 
     state["smart_action"] = get_smart_action(state["emotion"])
     return state
