@@ -8,7 +8,7 @@ from chat.models import AIPrompt
 logger = logging.getLogger("exhale")
 
 CONFIDENCE_THRESHOLD = 0.70
-ALLOWED_LABELS = {"happy", "sad", "anxious", "angry"}
+ALLOWED_LABELS = {"happy", "sad", "anxious", "angry", "neutral"}
 
 CRISIS_KEYWORDS = [
     "end it all", "kill myself", "want to die", "no reason to live",

@@ -86,6 +86,34 @@ export function useChat() {
     }
   }, []);
 
+  // Rename a conversation title
+  const renameConversation = useCallback(async (id, title) => {
+    const nextTitle = title.trim();
+    if (!nextTitle) return false;
+
+    const previous = conversations.find((c) => c.id === id);
+    if (!previous) return false;
+
+    setConversations((prev) =>
+      prev.map((conversation) =>
+        conversation.id === id ? { ...conversation, title: nextTitle } : conversation
+      )
+    );
+
+    try {
+      await api.patch(`/api/chat/conversations/${id}/`, { title: nextTitle });
+      return true;
+    } catch {
+      setConversations((prev) =>
+        prev.map((conversation) =>
+          conversation.id === id ? { ...conversation, title: previous.title } : conversation
+        )
+      );
+      setError("Failed to rename conversation.");
+      return false;
+    }
+  }, [conversations]);
+
   // ── Delete a conversation ─────────────────────────────────────────────────
   const deleteConversation = useCallback((id) => {
     setConversations((prev) => {
@@ -228,6 +256,7 @@ export function useChat() {
     activeConversationId,
     selectConversation,
     createConversation,
+    renameConversation,
     deleteConversation,
 
     // current chat

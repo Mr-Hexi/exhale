@@ -3,6 +3,12 @@ from .models import Conversation, ChatMessage
 
 
 class ConversationSerializer(serializers.ModelSerializer):
+    def validate_title(self, value):
+        stripped = value.strip()
+        if not stripped:
+            raise serializers.ValidationError("Conversation title cannot be blank.")
+        return stripped
+
     class Meta:
         model = Conversation
         fields = ["id", "title", "created_at"]

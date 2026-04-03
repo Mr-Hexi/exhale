@@ -195,9 +195,38 @@ class ClearChatView(APIView):
 
     def delete(self, request, conversation_id):
         try:
+            logger.info("Clearing chat — user_id=%s conversation_id=%s", request.user.id, conversation_id)
             conversation = Conversation.objects.get(id=conversation_id, user=request.user)
         except Conversation.DoesNotExist:
             return Response({"error": "Conversation not found."}, status=404)
 
         ChatMessage.objects.filter(conversation=conversation).delete()
         return Response({"message": "Chat cleared."})
+
+
+class ConversationDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, conversation_id):
+        try:
+            conversation = Conversation.objects.get(id=conversation_id, user=request.user)
+        except Conversation.DoesNotExist:
+            return Response({"error": "Conversation not found."}, status=404)
+
+        serializer = ConversationSerializer(conversation, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response({"error": serializer.errors}, status=400)
+
+        serializer.save()
+        return Response(serializer.data, status=200)
+
+    def delete(self, request, conversation_id):
+        try:
+            logger.info("Deleting conversation — user_id=%s conversation_id=%s", request.user.id, conversation_id)
+            conversation = Conversation.objects.get(id=conversation_id, user=request.user)
+            conversation.delete()
+            return Response({"message": "Conversation deleted."}, status=200)
+        except Conversation.DoesNotExist:
+            return Response({"error": "Conversation not found."}, status=404)
+
+

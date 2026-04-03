@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import api from "../api/axios";
 import { useChat } from "../hooks/useChat";
 import ChatWindow from "../components/Chat/ChatWindow";
@@ -20,6 +20,7 @@ export default function ChatPage() {
     activeConversationId,
     selectConversation,
     createConversation,
+    renameConversation,
     deleteConversation,
     messages,
     smartAction,
@@ -33,8 +34,20 @@ export default function ChatPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeMood, setActiveMood] = useState(null);
   const [checkinDone, setCheckinDone] = useState(false);
+  const [isRenamingTitle, setIsRenamingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId);
+
+  useEffect(() => {
+    setTitleDraft(activeConversation?.title || "New Chat");
+  }, [activeConversation?.id, activeConversation?.title]);
+
+  async function commitActiveTitleRename() {
+    if (!activeConversationId) return;
+    const renamed = await renameConversation(activeConversationId, titleDraft);
+    if (renamed) setIsRenamingTitle(false);
+  }
 
   async function handleCheckin(emotion) {
     setActiveMood(emotion);
@@ -47,134 +60,147 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="ui-shell flex h-[100dvh] flex-col overflow-hidden">
+    <div className="wa-page-shell">
+      {/* â”€â”€ TOP NAVBAR â”€â”€ */}
       <Navbar />
 
-      <div className="ui-page flex flex-1 gap-4 overflow-hidden px-1 py-4 md:py-6">
+      {/* â”€â”€ TWO-COLUMN CHAT SHELL (fills remaining height) â”€â”€ */}
+      <div className="wa-shell">
+        {/* LEFT SIDEBAR */}
         <ConversationSidebar
           conversations={conversations}
           activeId={activeConversationId}
           onSelect={selectConversation}
           onNew={createConversation}
+          onRename={renameConversation}
           onDelete={deleteConversation}
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
         />
 
-        <section className="ui-panel flex min-w-0 flex-1 flex-col overflow-hidden">
-          <div className="flex items-center gap-3 border-b border-black/5 px-4 py-3 sm:hidden">
+        {/* RIGHT CHAT AREA */}
+        <div className="wa-chat-area">
+          {/* Chat header */}
+          <div className="wa-chat-header">
+            {/* Mobile sidebar toggle */}
             <button
               onClick={() => setSidebarOpen(true)}
-              className="rounded-2xl border border-black/5 bg-white/85 px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:text-slate-900"
+              className="wa-icon-btn wa-mobile-only"
               aria-label="Open conversations"
             >
-              Menu
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path d="M2 5h14M2 9h14M2 13h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
             </button>
-            <span className="truncate text-sm font-medium text-slate-700">
-              {activeConversation?.title || "Conversation"}
-            </span>
+
+            <div className="wa-chat-av">E</div>
+
+            <div className="flex-1 min-w-0">
+              {isRenamingTitle ? (
+                <input
+                  autoFocus
+                  value={titleDraft}
+                  maxLength={255}
+                  className="wa-chat-name-input"
+                  onChange={(e) => setTitleDraft(e.target.value)}
+                  onBlur={commitActiveTitleRename}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      commitActiveTitleRename();
+                    } else if (e.key === "Escape") {
+                      e.preventDefault();
+                      setIsRenamingTitle(false);
+                      setTitleDraft(activeConversation?.title || "New Chat");
+                    }
+                  }}
+                  aria-label="Active conversation name"
+                />
+              ) : (
+                <button
+                  type="button"
+                  className="wa-chat-name-btn"
+                  onClick={() => setIsRenamingTitle(true)}
+                  title="Rename conversation"
+                >
+                  <span className="wa-chat-name truncate">{activeConversation?.title || "New Chat"}</span>
+                </button>
+              )}
+              <div className="wa-chat-status">
+                {isLoading ? "typingâ€¦" : "online"}
+              </div>
+            </div>
+
+            <div className="wa-chat-actions">
+              <button
+                onClick={clearChat}
+                disabled={messages.length === 0 || isLoading}
+                className="wa-clear-chat-btn"
+                title="Clear chat"
+                aria-label="Clear chat"
+              >
+                Clear chat
+              </button>
+            </div>
           </div>
 
+          {/* Mood check-in banner */}
           {!checkinDone && (
-            <div className="border-b border-black/5 bg-[rgba(223,241,235,0.55)] px-4 py-3">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-slate-800">Quick mood check-in</p>
-                  <p className="text-sm text-slate-500">Capture how you feel before you begin.</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {CHECKIN_OPTIONS.map(({ emotion, emoji, label }) => (
-                    <button
-                      key={emotion}
-                      onClick={() => handleCheckin(emotion)}
-                      className={`ui-btn px-3 py-2 text-xs transition-all ${
-                        activeMood === emotion
-                          ? "bg-[var(--brand-500)] text-white shadow-md ring-2 ring-[var(--brand-500)] ring-offset-2 ring-offset-[#ebf5f0]"
-                          : "ui-btn-secondary"
-                      }`}
-                    >
-                      {emoji} {label}
-                    </button>
-                  ))}
-                </div>
+            <div className="wa-checkin-bar">
+              <div className="wa-mood-text">How are you feeling right now?</div>
+              <div className="wa-mood-chips">
+                {CHECKIN_OPTIONS.map(({ emotion, emoji, label }) => (
+                  <button
+                    key={emotion}
+                    onClick={() => handleCheckin(emotion)}
+                    className={`wa-mood-chip ${activeMood === emotion ? "active" : ""}`}
+                  >
+                    {emoji} {label}
+                  </button>
+                ))}
               </div>
             </div>
           )}
 
+          {/* Crisis warning */}
           {isCrisis && (
-            <div className="border-b border-[#d79f9f] bg-[rgba(251,227,227,0.78)] px-4 py-3 text-sm text-[#8f3131]">
-              <strong>Crisis support:</strong> iCall (India): 9152987821 · Vandrevala Foundation: 1860-2662-345 (24/7) ·{" "}
-              <a href="https://findahelpline.com" target="_blank" rel="noreferrer" className="font-semibold underline">
+            <div className="wa-crisis-top-bar">
+              <strong>Crisis support:</strong> iCall (India): 9152987821 Â· Vandrevala Foundation:
+              1860-2662-345 Â·{" "}
+              <a href="https://findahelpline.com" target="_blank" rel="noreferrer">
                 findahelpline.com
               </a>
             </div>
           )}
 
-          {error && (
-            <div className="px-4 pt-4">
-              <div className="ui-alert-error">{error}</div>
+          {/* Error */}
+          {error && <div className="wa-error-bar">{error}</div>}
+
+          {/* Messages area */}
+          {messages.length === 0 && !isLoading ? (
+            <div className="wa-empty-state">
+              <div className="wa-empty-av">E</div>
+              <h2 className="wa-empty-title">A private space for honest conversation.</h2>
+              <p className="wa-empty-sub">
+                Share what feels heavy, hopeful, uncertain, or tangled. Exhale listens without judgment.
+              </p>
+            </div>
+          ) : (
+            <ChatWindow messages={messages} smartAction={smartAction} isCrisis={false} />
+          )}
+
+          {/* Typing indicator */}
+          {isLoading && (
+            <div className="wa-messages" style={{ flex: "none", paddingTop: 0, paddingBottom: "4px" }}>
+              <TypingIndicator />
             </div>
           )}
 
-          <div className="hidden items-center justify-between gap-4 border-b border-black/5 px-6 py-5 sm:flex">
-            <div className="min-w-0">
-              <p className="ui-kicker mb-2">Conversation</p>
-              <h1 className="truncate text-2xl font-semibold tracking-[-0.03em] text-slate-900">
-                {activeConversation?.title || "New conversation"}
-              </h1>
-              <p className="mt-1 text-sm text-slate-500">
-                {messages.length > 0
-                  ? `${messages.length} messages in this thread`
-                  : "Start writing when you're ready. Exhale will listen."}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="ui-stat hidden min-w-[140px] md:block">
-                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Status</p>
-                <p className="mt-2 text-sm font-semibold text-slate-800">
-                  {isLoading ? "Responding..." : "Ready to chat"}
-                </p>
-              </div>
-              <button
-                onClick={clearChat}
-                disabled={messages.length === 0 || isLoading}
-                className="ui-btn ui-btn-ghost"
-              >
-                Clear thread
-              </button>
-            </div>
-          </div>
-
-          <div className="flex min-h-0 flex-1 flex-col">
-            {messages.length === 0 && !isLoading ? (
-              <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-                <div className="max-w-xl">
-                  <p className="ui-kicker">Ready When You Are</p>
-                  <h2 className="ui-title text-[clamp(1.9rem,4vw,3.2rem)]">
-                    A private space for honest conversation.
-                  </h2>
-                  <p className="ui-subtitle mt-4">
-                    Share what feels heavy, hopeful, uncertain, or tangled. The interface stays calm so your attention can stay on the conversation.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <ChatWindow messages={messages} smartAction={smartAction} isCrisis={isCrisis} />
-            )}
-
-            {isLoading && (
-              <div className="px-4 pb-2 sm:px-6">
-                <TypingIndicator />
-              </div>
-            )}
-          </div>
-
-          <div className="sticky bottom-0 border-t border-black/5 bg-[rgba(255,255,255,0.84)] backdrop-blur-xl">
-            <InputBar onSend={sendMessage} isLoading={isLoading} />
-          </div>
-        </section>
+          {/* Input bar */}
+          <InputBar onSend={sendMessage} isLoading={isLoading} />
+        </div>
       </div>
     </div>
   );
 }
+

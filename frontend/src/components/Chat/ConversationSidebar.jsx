@@ -6,12 +6,45 @@ export function ConversationSidebar({
   activeId,
   onSelect,
   onNew,
+  onRename,
   onDelete,
   isOpen,
   onClose,
 }) {
   const [deletingId, setDeletingId] = useState(null);
   const [confirmId, setConfirmId] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [editingValue, setEditingValue] = useState("");
+  const [savingRenameId, setSavingRenameId] = useState(null);
+
+  function handleStartRename(event, conversation) {
+    event.stopPropagation();
+    setEditingId(conversation.id);
+    setEditingValue((conversation.title || "New Chat").trim());
+  }
+
+  async function handleCommitRename(conversationId) {
+    if (savingRenameId) return;
+    const trimmedTitle = editingValue.trim();
+    if (!trimmedTitle) {
+      setEditingValue("New Chat");
+      return;
+    }
+
+    const currentTitle = (conversations.find((c) => c.id === conversationId)?.title || "").trim();
+    if (trimmedTitle === currentTitle) {
+      setEditingId(null);
+      return;
+    }
+
+    setSavingRenameId(conversationId);
+    const renamed = await onRename(conversationId, trimmedTitle);
+    if (renamed) {
+      setEditingId(null);
+    }
+    setSavingRenameId(null);
+  }
 
   async function handleDelete(event, id) {
     event.stopPropagation();
@@ -38,91 +71,160 @@ export function ConversationSidebar({
     const today = new Date();
     const diffDays = Math.floor((today - date) / 86400000);
 
-    if (diffDays === 0) return "Today";
+    if (diffDays === 0) {
+      return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    }
     if (diffDays === 1) return "Yesterday";
     if (diffDays < 7) return `${diffDays}d ago`;
     return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   }
 
+  const filtered = conversations.filter((c) =>
+    (c.title || "New Chat").toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <>
-      {isOpen && <div className="fixed inset-0 z-20 bg-slate-900/30 backdrop-blur-sm sm:hidden" onClick={onClose} />}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-20 bg-slate-900/30 backdrop-blur-sm sm:hidden"
+          onClick={onClose}
+        />
+      )}
 
       <aside
-        className={`fixed left-0 top-0 z-30 flex h-full w-80 flex-col border-r border-black/5 bg-[rgba(248,245,240,0.98)] shadow-2xl transition-transform duration-300 sm:static sm:h-auto sm:translate-x-0 sm:rounded-[1.8rem] sm:border sm:shadow-[0_20px_60px_rgba(24,39,54,0.08)] ${
+        className={`wa-sidebar fixed left-0 top-0 z-30 h-full w-80 sm:static sm:h-auto sm:translate-x-0 sm:w-[300px] transition-transform duration-300 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="border-b border-black/5 px-5 py-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="ui-kicker mb-2">Your Space</p>
-              <h2 className="text-xl font-semibold tracking-[-0.03em] text-slate-900">Conversations</h2>
-              <p className="mt-1 text-sm text-slate-500">Separate threads keep each check-in easy to revisit.</p>
-            </div>
+        {/* Top bar */}
+        <div className="wa-sidebar-top">
+          <div className="wa-profile-av">E</div>
+          <div className="flex-1 min-w-0">
+            <div className="wa-sidebar-brand">Exhale</div>
+            <div className="wa-sidebar-tagline">Calm AI support workspace</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { onNew(); onClose(); }}
+              title="New conversation"
+              className="wa-icon-btn wa-mobile-only"
+              aria-label="New conversation"
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path d="M9 2v14M2 9h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+            </button>
             <button
               onClick={onClose}
-              className="rounded-2xl border border-black/5 bg-white/80 px-3 py-2 text-sm font-medium text-slate-500 transition-colors hover:text-slate-900 sm:hidden"
+              className="wa-icon-btn wa-mobile-only"
+              aria-label="Close sidebar"
             >
-              Close
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
             </button>
           </div>
-
-          <button onClick={() => { onNew(); onClose(); }} className="ui-btn ui-btn-primary mt-5 w-full justify-center">
-            New conversation
-          </button>
         </div>
 
-        <div className="ui-scrollbar flex-1 space-y-2 overflow-y-auto px-3 py-4">
-          {conversations.length === 0 && (
-            <div className="ui-card-soft px-4 py-6 text-center text-sm text-slate-500">
-              No conversations yet. Start one to begin your first reflection.
+        {/* Search */}
+        <div className="wa-search-bar">
+          <div className="wa-search-inner">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+              <circle cx="5.5" cy="5.5" r="4" stroke="#888780" strokeWidth="1.2" />
+              <path d="M9 9l2.5 2.5" stroke="#888780" strokeWidth="1.2" strokeLinecap="round" />
+            </svg>
+            <input
+              className="wa-search-input"
+              placeholder="Search conversations"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Conversation list */}
+        <div className="wa-convo-list ui-scrollbar">
+          {filtered.length === 0 && (
+            <div className="px-4 py-8 text-center text-sm text-[#888780]">
+              {searchQuery ? "No conversations found." : "No conversations yet. Start one!"}
             </div>
           )}
 
-          {conversations.map((conversation) => {
+          {filtered.map((conversation) => {
             const isActive = conversation.id === activeId;
             const isConfirming = confirmId === conversation.id;
             const isDeleting = deletingId === conversation.id;
+            const initial = (conversation.title || "N")[0].toUpperCase();
 
             return (
               <div
                 key={conversation.id}
                 onClick={() => { onSelect(conversation.id); onClose(); }}
-                className={`group relative flex w-full cursor-pointer items-start gap-3 rounded-[1.25rem] px-4 py-3 text-left transition-all ${
-                  isActive
-                    ? "bg-white text-slate-900 shadow-sm ring-1 ring-[rgba(31,122,106,0.14)]"
-                    : "text-slate-600 hover:bg-white/80 hover:text-slate-900"
-                }`}
+                className={`wa-convo-item group ${isActive ? "active" : ""}`}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
+                  if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
                     onSelect(conversation.id);
                     onClose();
                   }
                 }}
               >
-                <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${isActive ? "bg-[var(--brand-500)]" : "bg-slate-300"}`} />
+                <div className="wa-conv-av">{initial}</div>
 
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{conversation.title || "New Chat"}</p>
-                  <p className="mt-1 text-xs text-slate-400">{formatDate(conversation.created_at)}</p>
+                <div className="wa-conv-body">
+                  {editingId === conversation.id ? (
+                    <input
+                      autoFocus
+                      value={editingValue}
+                      maxLength={255}
+                      className="wa-conv-name-input"
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => setEditingValue(e.target.value)}
+                      onBlur={() => handleCommitRename(conversation.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleCommitRename(conversation.id);
+                        } else if (e.key === "Escape") {
+                          e.preventDefault();
+                          setEditingId(null);
+                        }
+                      }}
+                      aria-label="Conversation name"
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      className="wa-conv-name-btn"
+                      onClick={(e) => handleStartRename(e, conversation)}
+                      title="Rename conversation"
+                    >
+                      <span className="wa-conv-name">{conversation.title || "New Chat"}</span>
+                    </button>
+                  )}
+                  <div className="wa-conv-preview">
+                    {isConfirming ? "Click delete again to confirm" : "Tap to open conversation"}
+                  </div>
                 </div>
 
-                <button
-                  onClick={(event) => handleDelete(event, conversation.id)}
-                  disabled={isDeleting}
-                  className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold transition-all ${
-                    isConfirming
-                      ? "bg-[rgba(251,227,227,0.9)] text-[#a53636] opacity-100"
-                      : "bg-white/80 text-slate-400 opacity-0 group-hover:opacity-100"
-                  } ${isDeleting ? "opacity-50" : ""}`}
-                  title={isConfirming ? "Click again to confirm" : "Delete"}
-                >
-                  {isDeleting ? "..." : isConfirming ? "Confirm" : "Delete"}
-                </button>
+                <div className="wa-conv-meta">
+                  <div className="wa-conv-time">{formatDate(conversation.created_at)}</div>
+                  <button
+                    onClick={(e) => handleDelete(e, conversation.id)}
+                    disabled={isDeleting}
+                    className={
+                      isConfirming
+                        ? "wa-delete-btn confirming"
+                        : "wa-delete-btn opacity-0 group-hover:opacity-100"
+                    }
+                    title={isConfirming ? "Click again to confirm delete" : "Delete"}
+                  >
+                    {isDeleting ? "…" : isConfirming ? "✓" : "✕"}
+                  </button>
+                </div>
               </div>
             );
           })}
