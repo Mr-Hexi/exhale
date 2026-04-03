@@ -2,6 +2,28 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import api from '../api/axios'
 
+function normalizeRegisterError(data) {
+  if (!data) return 'Registration failed. Please try again.'
+
+  const root = data.errors || data.error || data.detail || data
+  if (typeof root === 'string') return root
+
+  if (Array.isArray(root)) {
+    return root.map((item) => (typeof item === 'string' ? item : '')).filter(Boolean).join(' ')
+  }
+
+  if (typeof root === 'object') {
+    const messages = Object.entries(root).flatMap(([field, value]) => {
+      if (typeof value === 'string') return `${field}: ${value}`
+      if (Array.isArray(value)) return value.map((msg) => `${field}: ${msg}`)
+      return []
+    })
+    if (messages.length) return messages.join(' ')
+  }
+
+  return 'Registration failed. Please try again.'
+}
+
 export default function RegisterPage() {
   const navigate = useNavigate()
   const [form, setForm] = useState({ username: '', email: '', password: '' })
@@ -20,7 +42,7 @@ export default function RegisterPage() {
       await api.post('/api/auth/register/', form)
       navigate('/login')
     } catch (err) {
-      setError(err.response?.data?.error || 'Registration failed. Please try again.')
+      setError(normalizeRegisterError(err.response?.data))
     } finally {
       setIsLoading(false)
     }

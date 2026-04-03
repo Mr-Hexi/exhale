@@ -16,7 +16,13 @@ class RegisterView(APIView):
         try:
             serializer = RegisterSerializer(data=request.data)
             if not serializer.is_valid():
-                return Response({"error": serializer.errors}, status=400)
+                return Response(
+                    {
+                        "error": "Validation failed.",
+                        "errors": serializer.errors,
+                    },
+                    status=400,
+                )
 
             user = serializer.save()
             logger.info("User registered: %s", user.id)
