@@ -16,3 +16,4 @@ class ChatState(TypedDict):
     user_age: str | None
     user_topics: list[str] | None
     last_question: str | None
+    response_policy: dict | None

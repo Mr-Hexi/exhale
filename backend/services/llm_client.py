@@ -49,7 +49,7 @@ llm_client, LLM_MODEL = _build_client()
 
 def get_completion(
     messages: list[dict],
-    max_tokens: int = 500,
+    max_tokens: int = 300,
     temperature: float = 0.7,
 ) -> str:
     response = llm_client.chat.completions.create(

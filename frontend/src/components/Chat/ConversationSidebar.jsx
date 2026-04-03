@@ -108,7 +108,7 @@ export function ConversationSidebar({
             <button
               onClick={() => { onNew(); onClose(); }}
               title="New conversation"
-              className="wa-icon-btn wa-mobile-only"
+              className="wa-icon-btn"
               aria-label="New conversation"
             >
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none">

@@ -1,5 +1,6 @@
 import logging
 import json
+import re
 from services.llm_client import get_completion, get_completion_stream
 from chat.exceptions import LLMAPIError
 from chat.models import AIPrompt
@@ -9,6 +10,105 @@ logger = logging.getLogger("exhale")
 CONTEXT_LABELS = {
     "Insight", "Technique", "Perspective", "Question", "Validation", "Reframe", "Resource"
 }
+
+EXISTENTIAL_QUESTION_PATTERNS = (
+    "what's the point",
+    "whats the point",
+    "what is the point",
+    "point of trying",
+    "why try",
+    "why should i try",
+    "why bother",
+    "no point trying",
+    "does anything matter",
+)
+
+NUMBNESS_KEYWORDS = (
+    "numb",
+    "feel nothing",
+    "can not feel anything",
+    "can't feel anything",
+    "empty inside",
+    "emotionally flat",
+    "disconnected",
+)
+
+INSIGHT_REQUIRED_STAGES = {"burnout", "hopelessness", "self_doubt"}
+DEEP_STAGES = {"burnout", "hopelessness"}
+NUMBER_WORDS = {
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+}
+
+
+def is_deep_stage(stage: str | None) -> bool:
+    return (stage or "").lower() in DEEP_STAGES
+
+
+def is_existential_question(text: str | None) -> bool:
+    if not text:
+        return False
+
+    text_lower = text.lower()
+    return any(pattern in text_lower for pattern in EXISTENTIAL_QUESTION_PATTERNS)
+
+
+def requires_meaningful_insight(current_text: str | None, stage: str | None) -> bool:
+    stage_name = (stage or "").lower()
+    if stage_name in INSIGHT_REQUIRED_STAGES:
+        return True
+
+    if not current_text:
+        return False
+
+    text_lower = current_text.lower()
+    return any(keyword in text_lower for keyword in NUMBNESS_KEYWORDS)
+
+
+def parse_response_policy(current_text: str | None, user_history_texts: list[str] | None = None) -> dict:
+    """
+    Build a lightweight policy from recent user directives.
+    Latest directive wins, so user can override prior constraints naturally.
+    """
+    entries = list(user_history_texts or [])
+    if current_text:
+        entries.append(current_text)
+
+    policy = {
+        "no_question": False,
+        "no_extra_prompt": False,
+        "max_sentences": None,
+    }
+
+    for text in entries:
+        if not text:
+            continue
+        lower = text.lower()
+
+        if any(token in lower for token in ("no question", "do not ask", "don't ask", "without question")):
+            policy["no_question"] = True
+        if any(token in lower for token in ("you can ask", "feel free to ask", "ask me a question")):
+            policy["no_question"] = False
+
+        if any(token in lower for token in ("no helpful prompt", "no extra prompt", "without extra prompt")):
+            policy["no_extra_prompt"] = True
+        if any(token in lower for token in ("helpful prompt is okay", "you can add prompt", "extra prompt is okay")):
+            policy["no_extra_prompt"] = False
+
+        digit_match = re.search(r"\b(?:exactly|only|just)?\s*(\d+)\s*(?:short\s*)?sentences?\b", lower)
+        word_match = re.search(r"\b(?:exactly|only|just)?\s*(one|two|three|four|five)\s*(?:short\s*)?sentences?\b", lower)
+        one_sentence_match = re.search(r"\bone sentence\b", lower)
+        if digit_match:
+            policy["max_sentences"] = max(1, min(int(digit_match.group(1)), 5))
+        elif word_match:
+            policy["max_sentences"] = NUMBER_WORDS[word_match.group(1)]
+        elif one_sentence_match:
+            policy["max_sentences"] = 1
+
+    return policy
 
 
 def _format_context_block(context: list[str]) -> str:
@@ -44,6 +144,9 @@ def build_messages(
     user_age: str = None,
     user_topics: list = None,
     can_ask_question: bool = True,
+    force_answer: bool = False,
+    needs_insight: bool = False,
+    response_policy: dict | None = None,
 ) -> list:
     """
     Build the messages list for the LLM call dynamically using DB Prompts.
@@ -114,12 +217,46 @@ def build_messages(
     messages.append({"role": "system", "content": system_prompt})
 
     # Add question handling dynamically if there's a question mark
-    if "?" in current_text and not is_crisis:
+    existential_question = is_existential_question(current_text)
+    should_force_answer = force_answer or existential_question
+
+    if ("?" in current_text or should_force_answer) and not is_crisis:
         try:
             q_handling = AIPrompt.objects.get(name="question_handling_prompt").content
             messages.append({"role": "system", "content": q_handling})
         except AIPrompt.DoesNotExist:
             pass
+    if should_force_answer and not is_crisis:
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    "The user asked a deep or existential question. "
+                    "You MUST answer it directly and clearly in 1-2 sentences before anything else. "
+                    "Do not avoid or soften the question."
+                ),
+            }
+        )
+    if (needs_insight or requires_meaningful_insight(current_text, stage)) and not is_crisis:
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    "If needs_insight is True, include at least one meaningful psychological insight. "
+                    "Do not provide only validation."
+                ),
+            }
+        )
+    if response_policy and not is_crisis:
+        policy_lines = []
+        if response_policy.get("no_question"):
+            policy_lines.append("Do NOT ask any question in this reply.")
+        if response_policy.get("max_sentences"):
+            policy_lines.append(f"Use at most {response_policy['max_sentences']} sentence(s).")
+        if response_policy.get("no_extra_prompt"):
+            policy_lines.append("Do not include add-on suggestions labelled as extra/helpful prompts.")
+        if policy_lines:
+            messages.append({"role": "system", "content": " ".join(policy_lines)})
 
     for msg in history[-history_limit:]:
         messages.append({"role": msg.role, "content": msg.content})
@@ -140,7 +277,10 @@ def build_messages(
         messages.append(
             {
                 "role": "system",
-                "content": "Do not ask a follow-up question in this reply. Provide support without ending in a question.",
+                "content": (
+                    "If can_ask_question is False: Do NOT ask any question in your response. "
+                    "Provide support without ending in a question."
+                ),
             }
         )
     return messages
@@ -175,3 +315,48 @@ def get_smart_action(emotion: str) -> dict | None:
         return json.loads(action_obj.content)
     except AIPrompt.DoesNotExist:
         return None
+
+
+def should_send_cbt_followup(
+    *,
+    emotion: str | None,
+    is_crisis: bool,
+    stage: str | None,
+    current_text: str | None,
+    response_policy: dict | None = None,
+) -> bool:
+    """
+    Guard CBT follow-ups so we do not ask extra probing questions in deep/existential flows.
+    """
+    if is_crisis:
+        return False
+    if emotion not in {"sad", "anxious"}:
+        return False
+    if is_deep_stage(stage):
+        return False
+    if is_existential_question(current_text):
+        return False
+    if response_policy and response_policy.get("no_extra_prompt"):
+        return False
+    return True
+
+
+def enforce_response_policy(response: str | None, response_policy: dict | None) -> str | None:
+    if not response:
+        return response
+    if not response_policy:
+        return response
+
+    output = response.strip()
+
+    max_sentences = response_policy.get("max_sentences")
+    if isinstance(max_sentences, int) and max_sentences > 0:
+        sentences = re.split(r"(?<=[.!?]) +", output)
+        output = " ".join(sentences[:max_sentences]).strip()
+
+    if response_policy.get("no_question"):
+        output = output.replace("?", ".")
+        output = re.sub(r"\s+\.", ".", output)
+        output = re.sub(r"\.{2,}", ".", output).strip()
+
+    return output

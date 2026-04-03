@@ -83,10 +83,18 @@ Fields used by runtime:
 - retrieval path: `context`
 - response path: `ai_response`, `smart_action`
 - question-control path: `last_question`
+- policy path: `response_policy` (`no_question`, `no_extra_prompt`, `max_sentences`)
 
 Question control logic:
-- `should_ask_question(state)` in `nodes.py` returns `True` only when `last_question` is `None`.
+- `should_ask_question(state)` in `nodes.py` is now stricter:
+  - returns `False` for deep stages: `burnout`, `hopelessness`
+  - returns `False` for existential prompts (for example: `"what's the point"`, `"why try"`, `"why bother"`)
+  - otherwise returns `True` only when `last_question` is `None`
 - after generating assistant text, `_extract_last_question()` stores last `?` sentence into `state["last_question"]`.
+
+Why this change matters:
+- In deep emotional states, we avoid ending with probing questions that can feel burdensome.
+- For existential user questions, the assistant is expected to answer directly first, not pivot to a follow-up.
 
 ---
 
@@ -125,11 +133,22 @@ State update in node:
 - `state["emotion"] = result["emotion"]`
 - `state["confidence"] = result.get("confidence", result.get("emotion_confidence", 1.0))`
 - `state["is_crisis"] = result.get("is_crisis", False)`
-- `state["stage"] = result.get("stage") or _detect_stage(state["text"], state["emotion"])`
+- model stage and heuristic stage are both computed, then arbitrated:
+  - `model_stage = result.get("stage")`
+  - `heuristic_stage = _detect_stage(state["text"], state["emotion"])`
+  - if heuristic is deep (`burnout`/`hopelessness`) and model stage is shallow/missing, heuristic wins.
 
 Stage detection behavior:
 - Uses explicit stage from classifier if present.
-- Otherwise uses keyword heuristics (`burnout`, `hopelessness`, `self_doubt`).
+- Otherwise uses keyword heuristics (`burnout`, `hopelessness`, `self_doubt`), now including stronger existential variants for hopelessness detection such as:
+  - `"what is the point"`
+  - `"why try"`
+  - `"why bother"`
+- Burnout heuristics also include natural phrases seen in real chats, such as:
+  - `"mentally tired"`
+  - `"hard to focus"`
+  - `"small tasks feel heavy"`
+  - `"even small tasks"`
 - Falls back to `"general"`.
 
 ### C) `retrieve_context_node(state)`
@@ -164,17 +183,28 @@ File: `backend/chat/graph/nodes.py`
 
 Calls:
 1. Loads chat history from `ChatMessage` for the same `conversation_id`.
-2. Computes `can_ask_question = should_ask_question(state)`.
-3. Builds LLM messages via `build_messages(...)`.
-4. If `stream_queue` exists in config:
+2. Builds per-turn `response_policy` from recent user messages + current message using `parse_response_policy(...)`.
+3. Computes `can_ask_question = should_ask_question(state)` and then applies policy override:
+   - if `response_policy["no_question"]` is true, questions are disabled.
+4. Computes:
+   - `force_answer = is_existential_question(state["text"])`
+   - `needs_insight = stage in {"hopelessness", "burnout", "self_doubt"}`
+5. Builds LLM messages via `build_messages(..., can_ask_question, force_answer, needs_insight, response_policy)`.
+6. If `stream_queue` exists in config:
    - `get_empathetic_response_stream(messages, stream_queue)`
    - pushes token chunks to queue
    - also returns full concatenated response
-5. Else:
+7. Else:
    - `get_empathetic_response(messages)`
-6. If non-crisis:
-   - `state["smart_action"] = get_smart_action(state["emotion"])`
-7. If `can_ask_question`:
+8. Post-processes response:
+   - `_limit_response_sentences(...)` hard-caps to first 4 sentences
+   - `enforce_response_policy(...)` applies user policy (for example remove `?`, cap sentence count)
+9. If non-crisis:
+   - if `response_policy["no_extra_prompt"]`: `state["smart_action"] = None`
+   - else if stage is `burnout` or `hopelessness`: `state["smart_action"] = None`
+   - else if `force_answer` is true (existential/deep direct question): `state["smart_action"] = None`
+   - else: `state["smart_action"] = get_smart_action(state["emotion"])`
+10. If `can_ask_question`:
    - extracts and stores `state["last_question"]`
 
 Crisis fallback inside node:
@@ -203,12 +233,59 @@ How prompts are composed:
    - recognized labels: `Insight`, `Technique`, `Perspective`, `Question`, `Validation`, `Reframe`, `Resource`
    - unlabeled lines are defaulted to `Insight: ...`
 5. Adds system message.
-6. If user text contains `?` (and not crisis), adds `question_handling_prompt`.
-7. Appends recent history (`history_limit=6`).
-8. Appends current user message.
-9. Question control:
+6. Question and existential controls:
+   - if `?` exists or `force_answer=True` (and not crisis), adds `question_handling_prompt`
+   - if `force_answer=True` (or existential pattern detected), appends hard instruction:
+     - answer directly and clearly in 1-2 sentences first
+     - do not avoid or soften the core question
+7. Policy control (`response_policy`):
+   - if `no_question`, injects explicit "Do NOT ask any question"
+   - if `max_sentences`, injects explicit sentence cap
+   - if `no_extra_prompt`, blocks add-on helper style output
+8. Appends recent history (`history_limit=6`).
+9. Appends current user message.
+10. Question control:
    - if `can_ask_question=True`: appends `question_variety_prompt`
    - else: appends explicit instruction to not ask a follow-up question.
+11. Insight requirement rule:
+   - if `needs_insight=True` OR stage is insight-required (`burnout`, `hopelessness`, `self_doubt`) OR text indicates numbness
+     (for example: `"numb"`, `"can't feel anything"`, `"empty inside"`, `"disconnected"`),
+     adds an explicit instruction requiring at least one meaningful psychological insight (not validation-only).
+
+---
+
+## 12) Critical response guardrails (new)
+
+These guardrails are now enforced in runtime message assembly and response flow, not just in seed prompts.
+
+1. Existential/direct-question rule:
+   - If user asks a direct existential question (example: `"What's the point of trying if it always comes back?"`), assistant must answer that question first.
+   - Response should not avoid the question with generic reassurance only.
+
+2. Deep-stage action suppression:
+   - For `burnout` and `hopelessness`, `smart_action` is intentionally disabled (`None`).
+   - For existential/deep direct questions, `smart_action` is also suppressed.
+   - Rationale: task-style suggestions can feel invalidating during emotionally depleted states.
+
+3. Insight requirement:
+   - For numbness/burnout/hopelessness/self-doubt signals, reply must include at least one meaningful psychological insight (not only validation).
+   - Example insight pattern: explain the emotional mechanism (for example emotional shutdown after prolonged overload), then connect it to a realistic path forward.
+
+4. Response-length control:
+   - After generation, response is trimmed to a max of ~4 sentences.
+   - This provides a final enforcement layer against long or rambling output.
+
+5. Persistent constraint policy:
+   - `parse_response_policy(...)` reads directives from recent user turns.
+   - Latest directive wins (users can naturally override earlier constraints).
+   - Enforced flags:
+     - `no_question`
+     - `no_extra_prompt`
+     - `max_sentences`
+   - Effects:
+     - questions can be suppressed across follow-ups
+     - helpful/extra prompts are suppressed across follow-ups
+     - sentence limits can be applied consistently
 
 ---
 
@@ -242,10 +319,14 @@ Back in `SendMessageView.bg_thread()` after `chat_graph.invoke(...)` returns:
 2. Creates assistant `ChatMessage` row (`result["ai_response"]`).
 3. Creates `MoodLog` row (`source="chat"`).
 4. Optional CBT follow-up:
-   - only if not crisis and emotion in `("sad", "anxious")`
-   - fetches `AIPrompt(name="cbt_prompt", emotion=<emotion>)`
-   - avoids duplicate in last 3 assistant messages
-   - creates extra assistant message if not already sent
+   - uses `should_send_cbt_followup(...)`
+   - blocked when:
+     - crisis
+     - emotion not in `("sad", "anxious")`
+     - deep stage (`burnout`, `hopelessness`)
+     - existential user text
+     - `response_policy.no_extra_prompt=True`
+   - still avoids duplicates in last 3 assistant messages
 5. Sends SSE final payload:
    - `user_message`
    - `ai_message`
@@ -356,7 +437,8 @@ sequenceDiagram
         N3-->>G: labeled context chunks
         G->>N4: respond_node(state, config)
         N4->>DB: Load ChatMessage history
-        N4->>C: build_messages(..., context_block, can_ask_question)
+        N4->>C: parse_response_policy(recent user msgs + current msg)
+        N4->>C: build_messages(..., context_block, can_ask_question, force_answer, needs_insight, response_policy)
         C->>DB: Load dynamic prompts (AIPrompt)
         N4->>C: get_empathetic_response_stream(messages, queue)
         C->>L: get_completion_stream(...)
@@ -365,16 +447,21 @@ sequenceDiagram
             C-->>V: queue.put({type:"chunk"})
             V-->>FE: SSE data chunk
         end
-        N4->>C: get_smart_action(emotion)
-        C->>DB: Load smart_action prompt JSON
-        N4-->>G: ai_response + smart_action (+ last_question maybe updated)
+        N4->>N4: Post-process response (max 4 sentences + enforce_response_policy)
+        alt no_extra_prompt policy OR deep stage OR existential
+            N4-->>G: ai_response + smart_action=None
+        else stage is general/self_doubt
+            N4->>C: get_smart_action(emotion)
+            C->>DB: Load smart_action prompt JSON
+            N4-->>G: ai_response + smart_action (+ last_question maybe updated)
+        end
     end
 
     G-->>T: final state result
     T->>DB: Create user ChatMessage
     T->>DB: Create assistant ChatMessage
     T->>DB: Create MoodLog
-    opt emotion is sad/anxious and not crisis
+    opt should_send_cbt_followup(...) is true
         T->>DB: Read latest assistant msgs + cbt_prompt
         T->>DB: Create CBT follow-up assistant message (if not duplicate)
     end

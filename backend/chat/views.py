@@ -6,6 +6,7 @@ from chat.models import Conversation, ChatMessage, AIPrompt
 from chat.serializers import ConversationSerializer, ChatMessageSerializer, SendMessageSerializer
 from chat.exceptions import LLMAPIError
 from chat.graph import chat_graph
+from chat.services.llm_chat_service import should_send_cbt_followup
 from mood.models import MoodLog
 import queue
 import threading
@@ -64,6 +65,7 @@ class SendMessageView(APIView):
                             "user_nickname": getattr(request.user, "nickname", None),
                             "user_age": getattr(request.user, "age_range", None),
                             "user_topics": topics_list,
+                            "response_policy": None,
                         },
                         config={"configurable": {"thread_id": str(conversation.id), "stream_queue": q}},
                     )
@@ -71,6 +73,8 @@ class SendMessageView(APIView):
                     emotion    = result["emotion"]
                     confidence = result["confidence"]
                     is_crisis  = result["is_crisis"]
+                    stage      = result.get("stage")
+                    response_policy = result.get("response_policy")
 
                     user_msg = ChatMessage.objects.create(
                         user=request.user,
@@ -97,7 +101,13 @@ class SendMessageView(APIView):
 
                     # CBT follow-up
                     cbt_prompt_data = None
-                    if not is_crisis and emotion in ("sad", "anxious"):
+                    if should_send_cbt_followup(
+                        emotion=emotion,
+                        is_crisis=is_crisis,
+                        stage=stage,
+                        current_text=content,
+                        response_policy=response_policy,
+                    ):
                         recent_assistant_contents = list(
                             ChatMessage.objects.filter(
                                 conversation=conversation,
