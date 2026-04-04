@@ -48,7 +48,7 @@ class   ChatMessage(models.Model):
 
 
 class AIPrompt(models.Model):
-    # Example names: "system_prompt", "crisis_prompt", "cbt_prompt", "smart_action"
+    # Example names: "base_system_prompt", "crisis_system_prompt", "emotion_prompt"
     name = models.CharField(max_length=50)
     
     # Example emotions: "sad", "anxious", "happy", "angry"

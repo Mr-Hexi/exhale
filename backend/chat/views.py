@@ -55,16 +55,13 @@ class SendMessageView(APIView):
                             "emotion": None,
                             "stage": None,
                             "confidence": None,
-                            "is_crisis": False,
                             "context": [],
                             "ai_response": None,
-                            "smart_action": None,
                             "conversation_id": conversation.id,
                             "user_id": request.user.id,
                             "user_nickname": getattr(request.user, "nickname", None),
                             "user_age": getattr(request.user, "age_range", None),
                             "user_topics": topics_list,
-                            "response_policy": None,
                         },
                         config={"configurable": {"thread_id": str(conversation.id), "stream_queue": q}},
                     )
@@ -96,9 +93,6 @@ class SendMessageView(APIView):
                         source="chat",
                     )
 
-                    # CBT follow-ups are temporarily disabled.
-                    cbt_prompt_data = None
-
                     logger.info(
                         "Message sent - user_id=%s conversation_id=%s emotion=%s confidence=%.2f is_crisis=%s",
                         request.user.id,
@@ -114,9 +108,7 @@ class SendMessageView(APIView):
                             "result": {
                                 "user_message": ChatMessageSerializer(user_msg).data,
                                 "ai_message": ChatMessageSerializer(ai_msg).data,
-                                "smart_action": result["smart_action"],
                                 "is_crisis": is_crisis,
-                                "cbt_prompt": cbt_prompt_data,
                             },
                         }
                     )
