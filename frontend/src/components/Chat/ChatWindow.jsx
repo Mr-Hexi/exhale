@@ -1,18 +1,12 @@
 import { useEffect, useRef } from "react";
 import MessageBubble from "./MessageBubble";
-import SmartActionPill from "./SmartActionPill";
 
-export default function ChatWindow({ messages, smartAction, isCrisis }) {
+export default function ChatWindow({ messages, isCrisis }) {
   const bottomRef = useRef(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  const lastAssistantIndex = messages.reduce(
-    (last, message, index) => (message.role === "assistant" ? index : last),
-    -1
-  );
 
   // Group messages by date
   function getDateLabel(iso) {
@@ -45,11 +39,6 @@ export default function ChatWindow({ messages, smartAction, isCrisis }) {
       {messages.map((message, index) => (
         <div key={message.id ?? index}>
           <MessageBubble message={message} />
-          {index === lastAssistantIndex && smartAction && (
-            <div className="mt-2 px-4">
-              <SmartActionPill smartAction={smartAction} />
-            </div>
-          )}
         </div>
       ))}
 

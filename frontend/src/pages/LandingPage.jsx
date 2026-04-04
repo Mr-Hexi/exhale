@@ -31,7 +31,7 @@ export default function LandingPage() {
             </em>
           </h1>
           <p className="text-[16px] sm:text-[18px] text-[var(--text-muted)] leading-[1.65] max-w-[420px] sm:max-w-[560px] mx-auto mb-10 font-medium">
-            Exhale listens, understands your emotions, and gently helps you process what you're going through — at any hour, without judgment.
+            An AI companion that detects the emotion behind your words and responds with empathy — not generic advice. Talk freely, at any hour, without judgment.
           </p>
           <div className="flex gap-3 justify-center flex-wrap">
             <Link to="/register" className="ui-btn ui-btn-primary !px-8 !py-2.5 !text-[14px]">
@@ -53,9 +53,7 @@ export default function LandingPage() {
             <div className="self-start max-w-[90%] px-4 py-3 rounded-2xl text-[13.5px] leading-[1.6] bg-[var(--bg-surface-strong)] text-[var(--text-primary)] border border-[rgba(23,33,43,0.08)] rounded-bl-sm shadow-md z-10 font-medium">
               That sounds really exhausting — when the mind won't slow down, it can feel like you're fighting yourself. You're not alone in this. Can you tell me what's been weighing on you most?
             </div>
-            <div className="self-start text-[12px] mt-3 px-4 py-1.5 rounded-full border border-[var(--brand-100)] text-[var(--brand-600)] bg-white shadow-sm cursor-pointer hover:bg-[var(--brand-100)] transition-colors z-10 font-bold">
-              &rarr; Try a breathing exercise
-            </div>
+
           </div>
           <div className="absolute -top-10 -right-10 w-64 h-64 bg-[var(--brand-100)] rounded-full mix-blend-multiply filter blur-3xl opacity-60 z-0"></div>
           <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-[var(--accent-100)] rounded-full mix-blend-multiply filter blur-3xl opacity-40 z-0"></div>

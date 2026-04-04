@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import api from "../../api/axios";
 
 export function ConversationSidebar({
@@ -17,11 +17,36 @@ export function ConversationSidebar({
   const [editingId, setEditingId] = useState(null);
   const [editingValue, setEditingValue] = useState("");
   const [savingRenameId, setSavingRenameId] = useState(null);
+  const [menuOpenId, setMenuOpenId] = useState(null);
+  const sidebarRef = useRef(null);
+
+  useEffect(() => {
+    function handleOutsideClick(event) {
+      if (!sidebarRef.current?.contains(event.target)) {
+        setMenuOpenId(null);
+      }
+    }
+
+    function handleEscape(event) {
+      if (event.key === "Escape") {
+        setMenuOpenId(null);
+      }
+    }
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
 
   function handleStartRename(event, conversation) {
     event.stopPropagation();
     setEditingId(conversation.id);
     setEditingValue((conversation.title || "New Chat").trim());
+    setMenuOpenId(null);
   }
 
   async function handleCommitRename(conversationId) {
@@ -46,11 +71,17 @@ export function ConversationSidebar({
     setSavingRenameId(null);
   }
 
+  function handleMenuToggle(event, id) {
+    event.stopPropagation();
+    setMenuOpenId((current) => (current === id ? null : id));
+  }
+
   async function handleDelete(event, id) {
     event.stopPropagation();
 
     if (confirmId !== id) {
       setConfirmId(id);
+      setMenuOpenId(id);
       return;
     }
 
@@ -63,6 +94,7 @@ export function ConversationSidebar({
     } finally {
       setDeletingId(null);
       setConfirmId(null);
+      setMenuOpenId(null);
     }
   }
 
@@ -93,6 +125,7 @@ export function ConversationSidebar({
       )}
 
       <aside
+        ref={sidebarRef}
         className={`wa-sidebar fixed left-0 top-0 z-30 h-full w-80 sm:static sm:h-auto sm:translate-x-0 sm:w-[300px] transition-transform duration-300 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
@@ -106,7 +139,10 @@ export function ConversationSidebar({
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => { onNew(); onClose(); }}
+              onClick={() => {
+                onNew();
+                onClose();
+              }}
               title="New conversation"
               className="wa-icon-btn"
               aria-label="New conversation"
@@ -160,7 +196,10 @@ export function ConversationSidebar({
             return (
               <div
                 key={conversation.id}
-                onClick={() => { onSelect(conversation.id); onClose(); }}
+                onClick={() => {
+                  onSelect(conversation.id);
+                  onClose();
+                }}
                 className={`wa-convo-item group ${isActive ? "active" : ""}`}
                 role="button"
                 tabIndex={0}
@@ -196,34 +235,50 @@ export function ConversationSidebar({
                       aria-label="Conversation name"
                     />
                   ) : (
-                    <button
-                      type="button"
-                      className="wa-conv-name-btn"
-                      onClick={(e) => handleStartRename(e, conversation)}
-                      title="Rename conversation"
-                    >
-                      <span className="wa-conv-name">{conversation.title || "New Chat"}</span>
-                    </button>
+                    <span className="wa-conv-name">{conversation.title || "New Chat"}</span>
                   )}
                   <div className="wa-conv-preview">
-                    {isConfirming ? "Click delete again to confirm" : "Tap to open conversation"}
+                    {isConfirming ? "Choose delete once more in the menu to confirm" : "Tap to open conversation"}
                   </div>
                 </div>
 
                 <div className="wa-conv-meta">
                   <div className="wa-conv-time">{formatDate(conversation.created_at)}</div>
-                  <button
-                    onClick={(e) => handleDelete(e, conversation.id)}
-                    disabled={isDeleting}
-                    className={
-                      isConfirming
-                        ? "wa-delete-btn confirming"
-                        : "wa-delete-btn opacity-0 group-hover:opacity-100"
-                    }
-                    title={isConfirming ? "Click again to confirm delete" : "Delete"}
-                  >
-                    {isDeleting ? "…" : isConfirming ? "✓" : "✕"}
-                  </button>
+                  <div className="wa-menu-wrap">
+                    <button
+                      type="button"
+                      onClick={(e) => handleMenuToggle(e, conversation.id)}
+                      className={`wa-menu-btn ${menuOpenId === conversation.id ? "open" : ""}`}
+                      title="Conversation options"
+                      aria-label="Conversation options"
+                      aria-expanded={menuOpenId === conversation.id}
+                    >
+                      ...
+                    </button>
+
+                    {menuOpenId === conversation.id && (
+                      <div className="wa-conv-menu" role="menu" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          className="wa-conv-menu-item"
+                          onClick={(e) => handleStartRename(e, conversation)}
+                          disabled={isDeleting}
+                        >
+                          Rename
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          className={`wa-conv-menu-item danger ${isConfirming ? "confirming" : ""}`}
+                          onClick={(e) => handleDelete(e, conversation.id)}
+                          disabled={isDeleting}
+                        >
+                          {isDeleting ? "Deleting..." : isConfirming ? "Confirm delete" : "Delete"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             );

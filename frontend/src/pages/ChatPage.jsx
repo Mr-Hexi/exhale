@@ -1,18 +1,10 @@
 import { useEffect, useState } from "react";
-import api from "../api/axios";
 import { useChat } from "../hooks/useChat";
 import ChatWindow from "../components/Chat/ChatWindow";
 import { ConversationSidebar } from "../components/Chat/ConversationSidebar";
 import InputBar from "../components/Chat/InputBar";
 import TypingIndicator from "../components/Chat/TypingIndicator";
 import Navbar from "../components/shared/Navbar";
-
-const CHECKIN_OPTIONS = [
-  { emotion: "happy", emoji: "😊", label: "Happy" },
-  { emotion: "sad", emoji: "😟", label: "Sad" },
-  { emotion: "anxious", emoji: "😰", label: "Anxious" },
-  { emotion: "angry", emoji: "😤", label: "Angry" },
-];
 
 export default function ChatPage() {
   const {
@@ -23,7 +15,6 @@ export default function ChatPage() {
     renameConversation,
     deleteConversation,
     messages,
-    smartAction,
     isCrisis,
     isLoading,
     error,
@@ -32,8 +23,6 @@ export default function ChatPage() {
   } = useChat();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeMood, setActiveMood] = useState(null);
-  const [checkinDone, setCheckinDone] = useState(false);
   const [isRenamingTitle, setIsRenamingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
 
@@ -47,16 +36,6 @@ export default function ChatPage() {
     if (!activeConversationId) return;
     const renamed = await renameConversation(activeConversationId, titleDraft);
     if (renamed) setIsRenamingTitle(false);
-  }
-
-  async function handleCheckin(emotion) {
-    setActiveMood(emotion);
-    setTimeout(() => setCheckinDone(true), 1200);
-    try {
-      await api.post("/api/mood/checkin/", { emotion });
-    } catch {
-      // Ignore check-in failures so chat remains uninterrupted.
-    }
   }
 
   return (
@@ -143,25 +122,6 @@ export default function ChatPage() {
               </button>
             </div>
           </div>
-
-          {/* Mood check-in banner */}
-          {!checkinDone && (
-            <div className="wa-checkin-bar">
-              <div className="wa-mood-text">How are you feeling right now?</div>
-              <div className="wa-mood-chips">
-                {CHECKIN_OPTIONS.map(({ emotion, emoji, label }) => (
-                  <button
-                    key={emotion}
-                    onClick={() => handleCheckin(emotion)}
-                    className={`wa-mood-chip ${activeMood === emotion ? "active" : ""}`}
-                  >
-                    {emoji} {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Crisis warning */}
           {isCrisis && (
             <div className="wa-crisis-top-bar">
@@ -186,7 +146,7 @@ export default function ChatPage() {
               </p>
             </div>
           ) : (
-            <ChatWindow messages={messages} smartAction={smartAction} isCrisis={false} />
+            <ChatWindow messages={messages} isCrisis={false} />
           )}
 
           {/* Typing indicator */}

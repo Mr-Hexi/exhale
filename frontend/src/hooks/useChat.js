@@ -8,7 +8,6 @@ export function useChat() {
   const [activeConversationId, setActiveConversationId] = useState(null);
 
   const [messages, setMessages] = useState([]);
-  const [smartAction, setSmartAction] = useState(null);
   const [isCrisis, setIsCrisis] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -50,7 +49,6 @@ export function useChat() {
   const loadHistory = useCallback(async (conversationId) => {
     if (!conversationId) return;
     setMessages([]);
-    setSmartAction(null);
     setIsCrisis(false);
     setError(null);
 
@@ -185,18 +183,34 @@ export function useChat() {
               const data = JSON.parse(dataStr);
 
               if (data.type === 'chunk') {
-                setMessages(prev => {
-                  if (!prev || prev.length === 0) return prev;
-                  const newArr = [...prev];
-                  const lastIdx = newArr.length - 1;
-                  if (!newArr[lastIdx]) return prev;
-                  
-                  newArr[lastIdx] = {
-                    ...newArr[lastIdx],
-                    content: (newArr[lastIdx].content || "") + (data.content || "")
-                  };
-                  return newArr;
-                });
+                // Add natural typing delay based on content
+                const chunk = data.content || "";
+                for (let i = 0; i < chunk.length; i++) {
+                  const char = chunk[i];
+                  // Variable delay for more natural typing feel
+                  let delay = 30; // base delay
+
+                  // Longer pauses after punctuation
+                  if (char === '.' || char === '!' || char === '?') delay = 200;
+                  else if (char === ',' || char === ';' || char === ':') delay = 100;
+                  else if (char === ' ') delay = 40; // slightly longer for spaces
+
+                  await new Promise(resolve => setTimeout(resolve, delay));
+
+                  // Update message incrementally
+                  setMessages(prev => {
+                    if (!prev || prev.length === 0) return prev;
+                    const newArr = [...prev];
+                    const lastIdx = newArr.length - 1;
+                    if (!newArr[lastIdx]) return prev;
+
+                    newArr[lastIdx] = {
+                      ...newArr[lastIdx],
+                      content: (newArr[lastIdx].content || "") + char
+                    };
+                    return newArr;
+                  });
+                }
               } else if (data.type === 'done') {
                 const { user_message, ai_message, is_crisis } = data.result;
                 setMessages(prev => {
@@ -212,7 +226,6 @@ export function useChat() {
                   
                   return newArr;
                 });
-                setSmartAction(null);
                 setIsCrisis(is_crisis || false);
               } else if (data.type === 'error') {
                 setError(data.error);
@@ -239,7 +252,6 @@ export function useChat() {
     try {
       await api.delete(`/api/chat/${activeConversationId}/clear/`);
       setMessages([]);
-      setSmartAction(null);
       setIsCrisis(false);
     } catch {
       setError("Failed to clear chat.");
@@ -257,7 +269,6 @@ export function useChat() {
 
     // current chat
     messages,
-    smartAction,
     isCrisis,
     isLoading,
     error,
