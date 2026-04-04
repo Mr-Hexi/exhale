@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import api from '../api/axios'
 
 function normalizeRegisterError(data) {
@@ -49,7 +50,12 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="ui-shell ui-auth-shell">
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      className="ui-shell ui-auth-shell"
+    >
       <div className="ui-auth-grid">
         <section className="ui-auth-hero hidden md:block">
           <p className="ui-kicker !text-white/70">Build Your Space</p>
@@ -117,7 +123,13 @@ export default function RegisterPage() {
               disabled={isLoading}
               className="ui-btn ui-btn-primary mt-6 w-full"
             >
-              {isLoading ? 'Registering...' : 'Create account'}
+              {isLoading ? (
+                <>
+                  <span className="ui-spinner" /> Registering...
+                </>
+              ) : (
+                'Create account'
+              )}
             </button>
           </form>
 
@@ -129,6 +141,6 @@ export default function RegisterPage() {
           </p>
         </section>
       </div>
-    </div>
+    </motion.div>
   )
 }

@@ -1,26 +1,58 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
 import Logo from '../components/shared/Logo';
 import Footer from '../components/shared/Footer';
 
+const fadeUp = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } }
+};
+
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
+
 export default function LandingPage() {
+  const { token } = useAuth();
+
   return (
     <div className="ui-shell min-h-screen overflow-x-hidden p-4 sm:p-6 lg:p-8 flex flex-col gap-4 sm:gap-6 lg:gap-8">
       {/* Main Page Area */}
-      <div className="w-full flex-grow mx-auto px-4 sm:px-8 lg:px-14 border border-[rgba(23,33,43,0.08)] rounded-[1.5rem] sm:rounded-[2.5rem] bg-[var(--bg-surface)]/20 backdrop-blur-xl shadow-panel">
-        <nav className="flex justify-between items-center py-5 border-b border-[var(--border-subtle)]">
+      <div className="w-full flex-grow mx-auto px-4 sm:px-8 lg:px-14 border border-[rgba(23,33,43,0.08)] rounded-[1.5rem] sm:rounded-[2.5rem] bg-[var(--bg-surface)]/20 backdrop-blur-xl shadow-panel pb-10">
+        <nav className="flex justify-between items-center py-4 border-b border-[var(--border-subtle)] sticky top-0 z-50 bg-[var(--bg-surface)]/60 backdrop-blur-xl rounded-t-2xl sm:rounded-t-3xl sm:-mx-8 lg:-mx-14 sm:px-8 lg:px-14">
           <Logo />
           <div className="flex gap-2.5 items-center">
-            <Link to="/login" className="text-[13px] font-medium px-4 py-2 rounded-xl text-[var(--text-primary)] hover:bg-[var(--bg-surface-muted)] transition-colors border border-transparent">
-              Sign in
-            </Link>
-            <Link to="/register" className="ui-btn ui-btn-primary !text-[13px] !px-5 !py-2 !rounded-xl">
-              Get started
-            </Link>
+            {token ? (
+              <Link to="/chat" className="ui-btn ui-btn-primary !text-[13px] !px-5 !py-2 !rounded-xl">
+                Open Chat
+              </Link>
+            ) : (
+              <>
+                <Link to="/login" className="text-[13px] font-medium px-4 py-2 rounded-xl text-[var(--text-primary)] hover:bg-[var(--bg-surface-muted)] transition-colors border border-transparent">
+                  Sign in
+                </Link>
+                <Link to="/register" className="ui-btn ui-btn-primary !text-[13px] !px-5 !py-2 !rounded-xl">
+                  Get started
+                </Link>
+              </>
+            )}
           </div>
         </nav>
 
-        <section className="text-center pt-16 pb-12">
+        <motion.section 
+          variants={fadeUp} 
+          initial="hidden" 
+          animate="visible" 
+          className="text-center pt-16 pb-12"
+        >
           <div className="inline-block text-[12px] font-bold tracking-wide text-[var(--brand-600)] bg-[var(--brand-100)] rounded-full px-4 py-1.5 mb-6 border border-[rgba(31,122,106,0.15)] shadow-sm">
             Safe · Private · Empathetic
           </div>
@@ -34,13 +66,18 @@ export default function LandingPage() {
             An AI companion that detects the emotion behind your words and responds with empathy — not generic advice. Talk freely, at any hour, without judgment.
           </p>
           <div className="flex gap-3 justify-center flex-wrap">
-            <Link to="/register" className="ui-btn ui-btn-primary !px-8 !py-2.5 !text-[14px]">
-              Start for free
+            <Link to={token ? "/chat" : "/register"} className="ui-btn ui-btn-primary !px-8 !py-2.5 !text-[14px]">
+              {token ? "Open Chat" : "Start for free"}
             </Link>
           </div>
-        </section>
+        </motion.section>
 
-        <div className="max-w-4xl mx-auto bg-[var(--bg-surface)] rounded-[var(--radius-lg)] p-5 sm:p-6 md:p-8 border border-[var(--border-subtle)] mt-6 mb-16 shadow-panel relative overflow-hidden backdrop-blur-md">
+        <motion.div 
+          variants={fadeUp} 
+          initial="hidden" 
+          animate="visible" 
+          className="max-w-4xl mx-auto bg-[var(--bg-surface)] rounded-[var(--radius-lg)] p-5 sm:p-6 md:p-8 border border-[var(--border-subtle)] mt-6 mb-16 shadow-panel relative overflow-hidden backdrop-blur-md"
+        >
           <div className="flex flex-col mb-5">
             <div className="self-end max-w-[80%] px-4 py-3 rounded-2xl text-[13.5px] leading-[1.55] bg-[var(--brand-500)] text-white rounded-br-sm shadow-md relative z-10 font-medium">
               I've been overthinking everything at work and I can't seem to stop.
@@ -57,9 +94,15 @@ export default function LandingPage() {
           </div>
           <div className="absolute -top-10 -right-10 w-64 h-64 bg-[var(--brand-100)] rounded-full mix-blend-multiply filter blur-3xl opacity-60 z-0"></div>
           <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-[var(--accent-100)] rounded-full mix-blend-multiply filter blur-3xl opacity-40 z-0"></div>
-        </div>
+        </motion.div>
 
-        <section className="py-12 border-t border-[var(--border-subtle)]">
+        <motion.section 
+          variants={fadeUp} 
+          initial="hidden" 
+          whileInView="visible" 
+          viewport={{ once: true, margin: "-50px" }}
+          className="py-12 border-t border-[var(--border-subtle)]"
+        >
           <div className="ui-kicker mb-3">
             What are you feeling?
           </div>
@@ -91,9 +134,15 @@ export default function LandingPage() {
               <span className="text-[12px] leading-relaxed text-[#A32D2D] font-medium">Heard, not judged or dismissed</span>
             </div>
           </div>
-        </section>
+        </motion.section>
 
-        <section className="py-12 border-t border-[var(--border-subtle)]">
+        <motion.section 
+          variants={fadeUp} 
+          initial="hidden" 
+          whileInView="visible" 
+          viewport={{ once: true, margin: "-50px" }}
+          className="py-12 border-t border-[var(--border-subtle)]"
+        >
           <div className="ui-kicker mb-3">
             How it works
           </div>
@@ -133,9 +182,15 @@ export default function LandingPage() {
               </div>
             </div>
           </div>
-        </section>
+        </motion.section>
 
-        <section className="py-12 border-t border-[var(--border-subtle)]">
+        <motion.section 
+          variants={fadeUp} 
+          initial="hidden" 
+          whileInView="visible" 
+          viewport={{ once: true, margin: "-50px" }}
+          className="py-12 border-t border-[var(--border-subtle)]"
+        >
           <div className="ui-kicker mb-3">
             Features
           </div>
@@ -164,9 +219,15 @@ export default function LandingPage() {
               <div className="text-[13px] text-[var(--text-muted)] leading-[1.6] font-medium">A warm, honest summary of the week — your patterns, not prescriptions.</div>
             </div>
           </div>
-        </section>
+        </motion.section>
 
-        <section className="py-12 border-t border-[var(--border-subtle)]">
+        <motion.section 
+          variants={fadeUp} 
+          initial="hidden" 
+          whileInView="visible" 
+          viewport={{ once: true, margin: "-50px" }}
+          className="py-12 border-t border-[var(--border-subtle)]"
+        >
           <div className="ui-kicker mb-3">
             People say
           </div>
@@ -193,9 +254,15 @@ export default function LandingPage() {
               </div>
             </div>
           </div>
-        </section>
+        </motion.section>
 
-        <section className="py-10 border-t border-[var(--border-subtle)]">
+        <motion.section 
+          variants={fadeUp} 
+          initial="hidden" 
+          whileInView="visible" 
+          viewport={{ once: true, margin: "-50px" }}
+          className="py-10 border-t border-[var(--border-subtle)]"
+        >
           <div className="ui-kicker mb-3">
             Safety
           </div>
@@ -208,22 +275,28 @@ export default function LandingPage() {
               If Exhale detects signs of a crisis, it responds with care and connects you to real support — iCall, Vandrevala Foundation, and international helplines. Exhale is a companion, not a replacement for professional help.
             </div>
           </div>
-        </section>
+        </motion.section>
 
-        <section className="text-center py-16 border-t border-[var(--border-subtle)]">
+        <motion.section 
+          variants={fadeUp} 
+          initial="hidden" 
+          whileInView="visible" 
+          viewport={{ once: true, margin: "-50px" }}
+          className="text-center py-16 border-t border-[var(--border-subtle)]"
+        >
           <h2 className="text-[28px] sm:text-[32px] font-extrabold text-[var(--text-primary)] mb-4 leading-tight tracking-tight">
             Your feelings deserve<br />a place to breathe.
           </h2>
           <p className="text-[16px] text-[var(--text-muted)] mb-8 font-medium">
             Free to start. No pressure. Just a space that listens.
           </p>
-          <Link to="/register" className="ui-btn ui-btn-primary !text-[15px] !px-8 !py-3.5 shadow-xl hover:shadow-2xl hover:-translate-y-0.5 transition-all !rounded-[1.25rem]">
-            Start your first conversation
+          <Link to={token ? "/chat" : "/register"} className="ui-btn ui-btn-primary !text-[15px] !px-8 !py-3.5 shadow-xl hover:shadow-2xl hover:-translate-y-0.5 transition-all !rounded-[1.25rem]">
+            {token ? "Continue conversation" : "Start your first conversation"}
           </Link>
           <div className="text-[12px] text-[var(--text-soft)] mt-6 font-medium tracking-wide">
             No ads. No data sold. Your conversations stay yours.
           </div>
-        </section>
+        </motion.section>
       </div>
 
       {/* Footer Area */}

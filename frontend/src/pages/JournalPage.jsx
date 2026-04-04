@@ -1,7 +1,18 @@
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import api from "../api/axios";
 import JournalEntry from "../components/Journal/JournalEntry";
 import Navbar from "../components/shared/Navbar";
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 15 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } }
+};
+
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.08 } }
+};
 
 export default function JournalPage() {
   const [entries, setEntries] = useState([]);
@@ -56,8 +67,13 @@ export default function JournalPage() {
     <div className="ui-shell min-h-screen">
       <Navbar />
 
-      <main className="ui-page px-1 py-6 md:py-8">
-        <section className="mb-6 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+      <motion.main 
+        variants={staggerContainer}
+        initial="hidden"
+        animate="visible"
+        className="ui-page px-1 py-6 md:py-8"
+      >
+        <motion.section variants={fadeUp} className="mb-6 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="ui-card">
             <p className="ui-kicker">Reflective Writing</p>
             <h1 className="ui-title text-[clamp(2rem,4vw,3.4rem)]">Journal with a little more clarity.</h1>
@@ -79,9 +95,9 @@ export default function JournalPage() {
               </div>
             </div>
           </div>
-        </section>
+        </motion.section>
 
-        <section className="ui-card mb-6">
+        <motion.section variants={fadeUp} className="ui-card mb-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="ui-section-title">Today&apos;s entry</h2>
@@ -108,9 +124,9 @@ export default function JournalPage() {
               </div>
             </div>
           )}
-        </section>
+        </motion.section>
 
-        {error && <div className="ui-alert-error mb-6">{error}</div>}
+        {error && <motion.div variants={fadeUp} className="ui-alert-error mb-6">{error}</motion.div>}
 
         {loading ? (
           <div className="ui-card flex justify-center py-16">
@@ -123,13 +139,13 @@ export default function JournalPage() {
             <p className="ui-subtitle mt-3 max-w-md">Start with one honest sentence. You can always edit, expand, or ask for insight later.</p>
           </div>
         ) : (
-          <div className="space-y-4">
+            <motion.div variants={fadeUp} className="space-y-4">
             {entries.map((entry) => (
               <JournalEntry key={entry.id} entry={entry} onUpdate={handleUpdate} onDelete={handleDelete} />
             ))}
-          </div>
+          </motion.div>
         )}
-      </main>
+      </motion.main>
     </div>
   );
 }

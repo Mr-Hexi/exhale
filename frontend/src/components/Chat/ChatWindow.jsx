@@ -10,9 +10,14 @@ export default function ChatWindow({ messages, isCrisis }) {
 
   // Group messages by date
   function getDateLabel(iso) {
+    if (!iso) return "Today";
     const date = new Date(iso);
+    if (isNaN(date)) return "Today";
     const today = new Date();
-    const diffDays = Math.floor((today - date) / 86400000);
+    today.setHours(0, 0, 0, 0);
+    const msgDate = new Date(date);
+    msgDate.setHours(0, 0, 0, 0);
+    const diffDays = Math.floor((today - msgDate) / 86400000);
     if (diffDays === 0) return "Today";
     if (diffDays === 1) return "Yesterday";
     return date.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
@@ -36,11 +41,14 @@ export default function ChatWindow({ messages, isCrisis }) {
         </div>
       )}
 
-      {messages.map((message, index) => (
-        <div key={message.id ?? index}>
-          <MessageBubble message={message} />
-        </div>
-      ))}
+      {messages.map((message, index) => {
+        if (!message.content && message.role === "assistant") return null;
+        return (
+          <div key={message.id ?? index}>
+            <MessageBubble message={message} />
+          </div>
+        );
+      })}
 
       <div ref={bottomRef} />
     </div>

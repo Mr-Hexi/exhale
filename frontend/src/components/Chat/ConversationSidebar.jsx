@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import api from "../../api/axios";
+import { useAuth } from "../../context/AuthContext";
 
 export function ConversationSidebar({
   conversations,
@@ -11,6 +13,7 @@ export function ConversationSidebar({
   isOpen,
   onClose,
 }) {
+  const { user } = useAuth();
   const [deletingId, setDeletingId] = useState(null);
   const [confirmId, setConfirmId] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -132,10 +135,12 @@ export function ConversationSidebar({
       >
         {/* Top bar */}
         <div className="wa-sidebar-top">
-          <div className="wa-profile-av">E</div>
+          <div className="wa-profile-av">
+            {user?.username ? user.username.charAt(0).toUpperCase() : 'E'}
+          </div>
           <div className="flex-1 min-w-0">
-            <div className="wa-sidebar-brand">Exhale</div>
-            <div className="wa-sidebar-tagline">Calm AI support workspace</div>
+            <div className="wa-sidebar-brand truncate">{user?.username || 'Exhale Workspace'}</div>
+            <div className="wa-sidebar-tagline truncate">{user?.email || 'Calm AI support workspace'}</div>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -253,11 +258,24 @@ export function ConversationSidebar({
                       aria-label="Conversation options"
                       aria-expanded={menuOpenId === conversation.id}
                     >
-                      ...
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="12" cy="5" r="2" />
+                        <circle cx="12" cy="12" r="2" />
+                        <circle cx="12" cy="19" r="2" />
+                      </svg>
                     </button>
 
+                    <AnimatePresence>
                     {menuOpenId === conversation.id && (
-                      <div className="wa-conv-menu" role="menu" onClick={(e) => e.stopPropagation()}>
+                      <motion.div 
+                        initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                        transition={{ duration: 0.15 }}
+                        className="wa-conv-menu" 
+                        role="menu" 
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <button
                           type="button"
                           role="menuitem"
@@ -265,6 +283,7 @@ export function ConversationSidebar({
                           onClick={(e) => handleStartRename(e, conversation)}
                           disabled={isDeleting}
                         >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 inline-block text-slate-500"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
                           Rename
                         </button>
                         <button
@@ -274,10 +293,12 @@ export function ConversationSidebar({
                           onClick={(e) => handleDelete(e, conversation.id)}
                           disabled={isDeleting}
                         >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 inline-block"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                           {isDeleting ? "Deleting..." : isConfirming ? "Confirm delete" : "Delete"}
                         </button>
-                      </div>
+                      </motion.div>
                     )}
+                    </AnimatePresence>
                   </div>
                 </div>
               </div>

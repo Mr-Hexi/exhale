@@ -1,9 +1,20 @@
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import api from "../api/axios";
 import EmotionSummary from "../components/Dashboard/EmotionSummary";
 import MoodChart from "../components/Dashboard/MoodChart";
 import SkeletonCard from "../components/Dashboard/SkeletonCard";
 import Navbar from "../components/shared/Navbar";
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 15 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } }
+};
+
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.08 } }
+};
 
 export default function DashboardPage() {
   const [moodHistory, setMoodHistory] = useState([]);
@@ -77,8 +88,13 @@ export default function DashboardPage() {
     <div className="ui-shell min-h-screen">
       <Navbar />
 
-      <main className="ui-page px-1 py-6 md:py-8">
-        <section className="mb-6 grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+      <motion.main 
+        variants={staggerContainer}
+        initial="hidden"
+        animate="visible"
+        className="ui-page px-1 py-6 md:py-8"
+      >
+        <motion.section variants={fadeUp} className="mb-6 grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
           <div className="ui-card">
             <p className="ui-kicker">Dashboard</p>
             <h1 className="ui-title text-[clamp(2rem,4vw,3.3rem)]">See your emotional patterns more clearly.</h1>
@@ -100,16 +116,16 @@ export default function DashboardPage() {
               </p>
             </div>
           </div>
-        </section>
+        </motion.section>
 
-        {error && <div className="ui-alert-error mb-6">{error}</div>}
+        {error && <motion.div variants={fadeUp} className="ui-alert-error mb-6">{error}</motion.div>}
 
-        <section className="grid gap-4 md:grid-cols-2">
+        <motion.section variants={fadeUp} className="grid gap-4 md:grid-cols-2">
           <MoodChart moodHistory={moodHistory} />
           <EmotionSummary stats={stats} />
-        </section>
+        </motion.section>
 
-        <section className="ui-card mt-6">
+        <motion.section variants={fadeUp} className="ui-card mt-6">
           <p className="ui-kicker">Weekly Insight</p>
           <h2 className="ui-section-title mt-1">A short summary of your recent emotional pattern</h2>
 
@@ -126,8 +142,8 @@ export default function DashboardPage() {
           ) : (
             <p className="mt-4 text-sm text-slate-500">No insight yet. Keep checking in through chat or journal and this section will update.</p>
           )}
-        </section>
-      </main>
+        </motion.section>
+      </motion.main>
     </div>
   );
 }

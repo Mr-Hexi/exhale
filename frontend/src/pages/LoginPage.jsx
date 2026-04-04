@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import api from '../api/axios'
 import { useAuth } from '../context/AuthContext'
 import Logo from '../components/shared/Logo'
@@ -32,7 +33,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="ui-shell min-h-screen flex flex-col justify-between p-4 sm:p-6 lg:p-8">
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      className="ui-shell min-h-screen flex flex-col justify-between p-4 sm:p-6 lg:p-8"
+    >
       <div className="w-full max-w-[1080px] mx-auto flex pb-6 pt-2">
         <Link to="/" className="inline-block hover:opacity-80 transition-opacity">
           <Logo />
@@ -96,7 +102,13 @@ export default function LoginPage() {
               disabled={isLoading}
               className="ui-btn ui-btn-primary mt-6 w-full"
             >
-              {isLoading ? 'Logging in...' : 'Log in'}
+              {isLoading ? (
+                <>
+                  <span className="ui-spinner" /> Logging in...
+                </>
+              ) : (
+                'Log in'
+              )}
             </button>
           </form>
 
@@ -112,6 +124,6 @@ export default function LoginPage() {
       <div className="w-full max-w-[1080px] mx-auto mt-8">
         <Footer className="!bg-[var(--bg-surface-soft)]/20" />
       </div>
-    </div>
+    </motion.div>
   )
 }

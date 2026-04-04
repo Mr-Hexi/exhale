@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import { useChat } from "../hooks/useChat";
 import ChatWindow from "../components/Chat/ChatWindow";
 import { ConversationSidebar } from "../components/Chat/ConversationSidebar";
@@ -39,8 +40,12 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="wa-page-shell">
-      {/* â”€â”€ TOP NAVBAR â”€â”€ */}
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="wa-page-shell"
+    >
+      {/* ── TOP NAVBAR ── */}
       <Navbar />
 
       {/* â”€â”€ TWO-COLUMN CHAT SHELL (fills remaining height) â”€â”€ */}
@@ -58,7 +63,12 @@ export default function ChatPage() {
         />
 
         {/* RIGHT CHAT AREA */}
-        <div className="wa-chat-area">
+        <motion.div 
+          initial={{ opacity: 0, x: 5 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.3 }}
+          className="wa-chat-area"
+        >
           {/* Chat header */}
           <div className="wa-chat-header">
             {/* Mobile sidebar toggle */}
@@ -150,7 +160,7 @@ export default function ChatPage() {
           )}
 
           {/* Typing indicator */}
-          {isLoading && (
+          {isLoading && (!messages.length || messages[messages.length - 1].role === 'user' || (messages[messages.length - 1].role === 'assistant' && !messages[messages.length - 1].content)) && (
             <div className="wa-messages" style={{ flex: "none", paddingTop: 0, paddingBottom: "4px" }}>
               <TypingIndicator />
             </div>
@@ -158,9 +168,9 @@ export default function ChatPage() {
 
           {/* Input bar */}
           <InputBar onSend={sendMessage} isLoading={isLoading} />
-        </div>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
