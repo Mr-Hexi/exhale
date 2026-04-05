@@ -23,7 +23,11 @@ class ConversationListCreateView(APIView):
         return Response(ConversationSerializer(conversations, many=True).data)
 
     def post(self, request):
-        conversation = Conversation.objects.create(user=request.user)
+        serializer = ConversationSerializer(data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response({"error": serializer.errors}, status=400)
+
+        conversation = Conversation.objects.create(user=request.user, **serializer.validated_data)
         return Response(ConversationSerializer(conversation).data, status=201)
 
 
@@ -62,6 +66,7 @@ class SendMessageView(APIView):
                             "user_nickname": getattr(request.user, "nickname", None),
                             "user_age": getattr(request.user, "age_range", None),
                             "user_topics": topics_list,
+                            "journal_context": conversation.journal_context,
                         },
                         config={"configurable": {"thread_id": str(conversation.id), "stream_queue": q}},
                     )

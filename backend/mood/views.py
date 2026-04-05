@@ -21,6 +21,7 @@ def get_weekly_emotion_summary(user):
     counts = (
         MoodLog.objects
         .filter(user=user, logged_at__gte=week_ago)
+        .exclude(emotion="neutral")
         .values("emotion")
         .annotate(count=Count("emotion"))
         .order_by("-count")

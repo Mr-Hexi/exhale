@@ -7,9 +7,10 @@ const EMOTION_META = {
   sad: { emoji: "😟", tone: "bg-sky-50 text-sky-700 border-sky-200" },
   anxious: { emoji: "😰", tone: "bg-amber-50 text-amber-700 border-amber-200" },
   angry: { emoji: "😤", tone: "bg-rose-50 text-rose-700 border-rose-200" },
+  neutral: { emoji: "😌", tone: "bg-slate-100 text-slate-700 border-slate-300" },
 };
 
-export default function JournalEntry({ entry, onUpdate, onDelete }) {
+export default function JournalEntry({ entry, onUpdate, onDelete, onDiscuss }) {
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState(entry.content);
@@ -116,6 +117,9 @@ export default function JournalEntry({ entry, onUpdate, onDelete }) {
 
           {!editing && (
             <div className="mt-5 flex flex-wrap gap-2">
+              <button onClick={() => onDiscuss?.(entry)} className="ui-btn ui-btn-primary">
+                Discuss in chat
+              </button>
               <button onClick={handleGetInsight} disabled={insightLoading} className="ui-btn ui-btn-secondary">
                 Get AI insight
               </button>

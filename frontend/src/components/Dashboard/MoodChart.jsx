@@ -29,17 +29,19 @@ function CustomTooltip({ active, payload }) {
 }
 
 export default function MoodChart({ moodHistory }) {
-  if (!moodHistory || moodHistory.length === 0) {
+  const filteredHistory = (moodHistory || []).filter((log) => log.emotion !== "neutral");
+
+  if (filteredHistory.length === 0) {
     return (
       <div className="ui-card flex min-h-[320px] flex-col items-center justify-center text-center">
         <p className="ui-kicker">Mood Over Time</p>
         <h2 className="ui-section-title">No mood data yet</h2>
-        <p className="ui-subtitle mt-3 max-w-sm">Start chatting or journaling and your mood timeline will begin to take shape here.</p>
+        <p className="ui-subtitle mt-3 max-w-sm">No non-neutral mood points yet. Keep checking in and your trend line will appear here.</p>
       </div>
     );
   }
 
-  const data = moodHistory.map((log) => ({
+  const data = filteredHistory.map((log) => ({
     date: new Date(log.logged_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
     value: EMOTION_VALUE[log.emotion] ?? 2,
     emotion: log.emotion,

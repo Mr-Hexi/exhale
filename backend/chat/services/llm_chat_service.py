@@ -93,6 +93,7 @@ def build_messages(
     user_nickname: str | None = None,
     user_age: str | None = None,
     user_topics: list | None = None,
+    journal_context: str | None = None,
 ) -> list:
     """Build prompt stack using the simplified standalone-style flow."""
     messages = []
@@ -119,6 +120,13 @@ def build_messages(
 
     if user_context_parts:
         system_prompt = f"{system_prompt}\n\n{' '.join(user_context_parts)}"
+
+    if journal_context and not is_crisis:
+        system_prompt += (
+            "\n\nJOURNAL CONTEXT:\n"
+            f"{journal_context.strip()}\n\n"
+            "Use this context naturally to ground your response. Do not quote it verbatim unless the user asks."
+        )
 
     if context and not is_crisis:
         context_block = _format_context_block(context)

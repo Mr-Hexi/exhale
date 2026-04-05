@@ -15,3 +15,4 @@ class ChatState(TypedDict):
     user_nickname: str | None
     user_age: str | None
     user_topics: list[str] | None
+    journal_context: str | None

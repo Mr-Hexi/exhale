@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useChat } from "../hooks/useChat";
 import ChatWindow from "../components/Chat/ChatWindow";
 import { ConversationSidebar } from "../components/Chat/ConversationSidebar";
@@ -8,6 +9,10 @@ import TypingIndicator from "../components/Chat/TypingIndicator";
 import Navbar from "../components/shared/Navbar";
 
 export default function ChatPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [initialJournalContext] = useState(() => location.state?.journalContext || null);
+
   const {
     conversations,
     activeConversationId,
@@ -21,7 +26,7 @@ export default function ChatPage() {
     error,
     sendMessage,
     clearChat,
-  } = useChat();
+  } = useChat({ initialJournalContext });
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isRenamingTitle, setIsRenamingTitle] = useState(false);
@@ -32,6 +37,11 @@ export default function ChatPage() {
   useEffect(() => {
     setTitleDraft(activeConversation?.title || "New Chat");
   }, [activeConversation?.id, activeConversation?.title]);
+
+  useEffect(() => {
+    if (!location.state?.journalContext) return;
+    navigate("/chat", { replace: true, state: null });
+  }, [location.state?.journalContext, navigate]);
 
   async function commitActiveTitleRename() {
     if (!activeConversationId) return;
@@ -173,4 +183,3 @@ export default function ChatPage() {
     </motion.div>
   );
 }
-

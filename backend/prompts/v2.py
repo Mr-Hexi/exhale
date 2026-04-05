@@ -6,7 +6,7 @@ PROMPT_VERSION = "v2"
 # ── Emotion Classification ───────────────────────────────────────────────────
 
 EMOTION_CLASSIFY_PROMPTS = """Classify the emotion in this text.
-Reply with ONLY one word — one of: happy, sad, anxious, angry.
+Reply with ONLY one word — one of: happy, sad, anxious, angry, neutral.
 No explanation. No punctuation. Just the single word.
 Text: {text}"""
 
@@ -77,6 +77,16 @@ The user is feeling angry.
 - Offer perspective gently (not dismissively)
 
 Tone: composed, respectful, non-reactive (2-3 sentences)
+""",
+
+    "neutral": """
+The user appears emotionally neutral or mixed.
+
+- Keep the tone steady and natural
+- Reflect briefly without over-interpreting
+- Ask one lightweight follow-up question
+
+Tone: balanced, calm, conversational (2-3 sentences)
 """
 }
 
@@ -258,5 +268,10 @@ SMART_ACTIONS = {
         "label": "Capture this moment",
         "type": "journal_prompt",
         "content": "You seem happy — want to write about this moment?",
+    },
+    "neutral": {
+        "label": "Quick reflection",
+        "type": "prompt",
+        "content": "Want to capture one small thing that stood out in your day?",
     },
 }

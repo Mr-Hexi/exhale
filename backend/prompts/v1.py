@@ -7,7 +7,7 @@ PROMPT_VERSION = "v1"
 # ── Emotion Classification ───────────────────────────────────────────────────
 
 EMOTION_CLASSIFY_PROMPT = """Classify the emotion in this text.
-Reply with ONLY one word — one of: happy, sad, anxious, angry.
+Reply with ONLY one word — one of: happy, sad, anxious, angry, neutral.
 No explanation. No punctuation. Just the single word.
 Text: {text}"""
 
@@ -36,6 +36,11 @@ You are a patient, non-judgmental AI companion. The user is feeling angry.
 Acknowledge their frustration without escalating. Help them feel heard.
 Offer a grounding thought or perspective shift. 2-3 sentences.
 Never diagnose or minimise. Avoid toxic positivity.
+""",
+    "neutral": """
+You are a calm, present AI companion. The user appears emotionally neutral or mixed.
+Stay natural and attentive. Reflect briefly without over-analyzing.
+Ask one light follow-up question. Keep responses concise (2-3 sentences).
 """,
 }
 
@@ -136,6 +141,11 @@ SMART_ACTIONS = {
         "label": "Save this moment",
         "type": "journal_prompt",
         "content": "You seem happy right now — want to capture this feeling in your journal?",
+    },
+    "neutral": {
+        "label": "Quick reflection",
+        "type": "prompt",
+        "content": "Want to note one moment from today that felt meaningful or surprising?",
     },
 }
 

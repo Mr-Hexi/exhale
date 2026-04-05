@@ -9,6 +9,7 @@ class Conversation(models.Model):
         related_name="conversations",
     )
     title = models.CharField(max_length=255, default="New Chat")
+    journal_context = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

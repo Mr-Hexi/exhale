@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-VALID_EMOTIONS = ["happy", "sad", "anxious", "angry", ""]
+VALID_EMOTIONS = ["happy", "sad", "anxious", "angry", "neutral", ""]
 VALID_STAGES = ["general", "self_doubt", "burnout", "hopelessness"]
 
 class KnowledgeSearchSerializer(serializers.Serializer):

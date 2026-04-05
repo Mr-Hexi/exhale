@@ -63,7 +63,7 @@ class EmotionSummaryView(APIView):
             .values("emotion")
             .annotate(count=Count("emotion"))
         )
-        summary = {"happy": 0, "sad": 0, "anxious": 0, "angry": 0}
+        summary = {"happy": 0, "sad": 0, "anxious": 0, "angry": 0, "neutral": 0}
         for row in counts:
             if row["emotion"] in summary:
                 summary[row["emotion"]] = row["count"]

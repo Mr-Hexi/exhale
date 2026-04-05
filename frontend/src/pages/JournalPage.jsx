@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import JournalEntry from "../components/Journal/JournalEntry";
 import Navbar from "../components/shared/Navbar";
@@ -15,6 +16,7 @@ const staggerContainer = {
 };
 
 export default function JournalPage() {
+  const navigate = useNavigate();
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newContent, setNewContent] = useState("");
@@ -61,6 +63,20 @@ export default function JournalPage() {
 
   function handleDelete(id) {
     setEntries(entries.filter((entry) => entry.id !== id));
+  }
+
+  function handleDiscuss(entry) {
+    navigate("/chat", {
+      state: {
+        journalContext: {
+          entryId: entry.id,
+          content: entry.content,
+          emotion: entry.emotion,
+          aiInsight: entry.ai_insight,
+          createdAt: entry.created_at,
+        },
+      },
+    });
   }
 
   return (
@@ -141,7 +157,13 @@ export default function JournalPage() {
         ) : (
             <motion.div variants={fadeUp} className="space-y-4">
             {entries.map((entry) => (
-              <JournalEntry key={entry.id} entry={entry} onUpdate={handleUpdate} onDelete={handleDelete} />
+              <JournalEntry
+                key={entry.id}
+                entry={entry}
+                onUpdate={handleUpdate}
+                onDelete={handleDelete}
+                onDiscuss={handleDiscuss}
+              />
             ))}
           </motion.div>
         )}

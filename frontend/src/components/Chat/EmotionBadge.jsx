@@ -3,6 +3,7 @@ const EMOTION_CONFIG = {
   sad: { emoji: "😟", label: "Sad", tone: "bg-sky-50 text-sky-700 border-sky-200" },
   anxious: { emoji: "😰", label: "Anxious", tone: "bg-amber-50 text-amber-700 border-amber-200" },
   angry: { emoji: "😤", label: "Angry", tone: "bg-rose-50 text-rose-700 border-rose-200" },
+  neutral: { emoji: "😌", label: "Neutral", tone: "bg-slate-100 text-slate-700 border-slate-300" },
 };
 
 export default function EmotionBadge({ emotion, confidence }) {

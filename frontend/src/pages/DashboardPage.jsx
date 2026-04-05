@@ -18,7 +18,7 @@ const staggerContainer = {
 
 export default function DashboardPage() {
   const [moodHistory, setMoodHistory] = useState([]);
-  const [stats, setStats] = useState({ happy: 0, sad: 0, anxious: 0, angry: 0 });
+  const [stats, setStats] = useState({ happy: 0, sad: 0, anxious: 0, angry: 0, neutral: 0 });
   const [insight, setInsight] = useState(null);
   const [loading, setLoading] = useState(true);
   const [insightLoading, setInsightLoading] = useState(true);
@@ -40,7 +40,7 @@ export default function DashboardPage() {
 
       try {
         const statsResponse = await api.get("/api/mood/stats/");
-        const nextStats = { happy: 0, sad: 0, anxious: 0, angry: 0 };
+        const nextStats = { happy: 0, sad: 0, anxious: 0, angry: 0, neutral: 0 };
         Object.keys(nextStats).forEach((key) => {
           if (statsResponse.data[key] !== undefined) nextStats[key] = statsResponse.data[key];
         });

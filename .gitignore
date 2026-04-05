@@ -1,5 +1,11 @@
 claudee.md
 context.md
+interview.md
+CLAUDE.md
+INTERVIEW_QA.md
+PROJECT_DOCUMENTATION.md
+
+
 .claude/
 # Python
 __pycache__/
@@ -8,6 +14,7 @@ __pycache__/
 venv/
 *.egg-info/
 
+PROJECT_CONTEXT_FOR_INTERVIEW.md
 # Django
 backend/.env
 backend/logs/*.log

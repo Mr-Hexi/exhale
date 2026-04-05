@@ -3,10 +3,12 @@ const EMOTION_META = {
   sad: { emoji: "😟", tone: "bg-sky-50 text-sky-700 border-sky-200", bar: "#7eb6e8" },
   anxious: { emoji: "😰", tone: "bg-amber-50 text-amber-700 border-amber-200", bar: "#dfb255" },
   angry: { emoji: "😤", tone: "bg-rose-50 text-rose-700 border-rose-200", bar: "#dc7f7f" },
+  neutral: { emoji: "😌", tone: "bg-slate-100 text-slate-700 border-slate-300", bar: "#94a3b8" },
 };
 
 export default function EmotionSummary({ stats }) {
-  const total = Object.values(stats).reduce((sum, count) => sum + count, 0);
+  const displayStats = Object.entries(stats).filter(([emotion]) => emotion !== "neutral");
+  const total = displayStats.reduce((sum, [, count]) => sum + count, 0);
 
   if (total === 0) {
     return (
@@ -24,10 +26,10 @@ export default function EmotionSummary({ stats }) {
       <h2 className="ui-section-title">How your recent check-ins are distributed</h2>
 
       <div className="mt-6 space-y-4">
-        {Object.entries(stats)
+        {displayStats
           .sort(([, a], [, b]) => b - a)
           .map(([emotion, count]) => {
-            const meta = EMOTION_META[emotion];
+            const meta = EMOTION_META[emotion] || EMOTION_META.neutral;
             const percent = Math.round((count / total) * 100);
 
             return (

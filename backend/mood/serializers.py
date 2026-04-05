@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import MoodLog
 
-VALID_EMOTIONS = ["happy", "sad", "anxious", "angry"]
+VALID_EMOTIONS = ["happy", "sad", "anxious", "angry", "neutral"]
 
 
 class MoodLogSerializer(serializers.ModelSerializer):

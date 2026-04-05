@@ -131,6 +131,7 @@ def respond_node(state: ChatState, config: RunnableConfig) -> ChatState:
         user_nickname=state.get("user_nickname"),
         user_age=state.get("user_age"),
         user_topics=state.get("user_topics"),
+        journal_context=state.get("journal_context"),
     )
 
     stream_queue = config.get("configurable", {}).get("stream_queue")
