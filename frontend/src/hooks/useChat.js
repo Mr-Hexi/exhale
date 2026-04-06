@@ -148,7 +148,7 @@ export function useChat({ initialJournalContext = null } = {}) {
               });
             }
           } else if (data.type === "done") {
-            const { user_message, ai_message, is_crisis } = data.result;
+            const { user_message, ai_message, is_crisis, conversation } = data.result;
             setMessages((prev) => {
               if (!prev) return prev;
               const next = [...prev];
@@ -161,6 +161,11 @@ export function useChat({ initialJournalContext = null } = {}) {
               return next;
             });
             setIsCrisis(is_crisis || false);
+            if (conversation?.id) {
+              setConversations((prev) =>
+                prev.map((item) => (item.id === conversation.id ? { ...item, ...conversation } : item))
+              );
+            }
           } else if (data.type === "error") {
             setError(data.error);
             setMessages((prev) =>

@@ -43,6 +43,8 @@ BAD_CRISIS_PATTERNS = [
     r"tell me why",
 ]
 
+MAX_CONVERSATION_TITLE_LENGTH = 80
+
 
 def is_existential_question(text: str | None) -> bool:
     if not text:
@@ -94,6 +96,8 @@ def build_messages(
     user_age: str | None = None,
     user_topics: list | None = None,
     journal_context: str | None = None,
+    emotion_history: list[str] | None = None,
+    stage_history: list[str] | None = None,
 ) -> list:
     """Build prompt stack using the simplified standalone-style flow."""
     messages = []
@@ -127,6 +131,35 @@ def build_messages(
             f"{journal_context.strip()}\n\n"
             "Use this context naturally to ground your response. Do not quote it verbatim unless the user asks."
         )
+
+    filtered_emotions = [e for e in (emotion_history or []) if e]
+    filtered_stages = [s for s in (stage_history or []) if s]
+    if len(filtered_emotions) >= 2 and not is_crisis:
+        trend_parts = []
+        emotion_counts = {}
+        for e in filtered_emotions:
+            emotion_counts[e] = emotion_counts.get(e, 0) + 1
+        dominant = sorted(emotion_counts.items(), key=lambda x: x[1], reverse=True)
+        parts = [f"{label} ({count}x)" for label, count in dominant]
+        trend_parts.append(f"Emotions detected in this conversation: {', '.join(parts)}")
+        recent_emotions = filtered_emotions[-6:]
+        if len(set(recent_emotions)) < len(recent_emotions):
+            repeats = [e for e in set(recent_emotions) if recent_emotions.count(e) > 1]
+            if repeats:
+                trend_parts.append(f"The user has been feeling {', '.join(repeats)} repeatedly in recent messages — acknowledge this growing pattern.")
+        if filtered_stages:
+            stage_counts = {}
+            for s in filtered_stages:
+                stage_counts[s] = stage_counts.get(s, 0) + 1
+            dominant_stage = max(stage_counts, key=stage_counts.get)
+            if dominant_stage != "general" and stage_counts[dominant_stage] >= 2:
+                trend_parts.append(f"The conversation has touched on {dominant_stage.replace('_', ' ')} multiple times.")
+        trend_parts.append(
+            "If appropriate, reference this pattern naturally to show you're tracking their journey. "
+            "For example: 'You mentioned feeling anxious before too' or 'This seems to be a recurring theme for you.' "
+            "Keep it brief and empathetic — don't sound clinical or like you're reading statistics."
+        )
+        system_prompt += "\n\nCONVERSATION TREND:\n" + "\n".join(trend_parts)
 
     if context and not is_crisis:
         context_block = _format_context_block(context)
@@ -197,3 +230,54 @@ def enforce_crisis_safety(text: str) -> str:
     cleaned = cleaned.replace("sweetheart", "")
     cleaned = cleaned.replace("dear", "")
     return cleaned.strip()
+
+
+def _fallback_title_from_message(first_message: str) -> str:
+    words = re.findall(r"[A-Za-z0-9']+", first_message or "")
+    if not words:
+        return "New Chat"
+
+    title = " ".join(words[:6]).strip()
+    title = title[:MAX_CONVERSATION_TITLE_LENGTH].strip()
+    return title or "New Chat"
+
+
+def _clean_generated_title(raw_title: str | None, first_message: str) -> str:
+    if not raw_title:
+        return _fallback_title_from_message(first_message)
+
+    cleaned = raw_title.strip().strip('"').strip("'")
+    cleaned = re.sub(r"^title\s*:\s*", "", cleaned, flags=re.IGNORECASE).strip()
+    cleaned = " ".join(cleaned.split())
+    cleaned = cleaned[:MAX_CONVERSATION_TITLE_LENGTH].strip()
+
+    if not cleaned:
+        return _fallback_title_from_message(first_message)
+
+    return cleaned
+
+
+def generate_conversation_title(first_message: str) -> str:
+    prompt = (
+        "Create a short conversation title based only on the user's message.\n"
+        "Rules:\n"
+        "- 2 to 6 words\n"
+        "- plain text only\n"
+        "- no quotes, emojis, or punctuation at the ends\n"
+        "- do not include the word 'title'\n"
+        "- reflect the user's main topic"
+    )
+
+    try:
+        generated = get_completion(
+            [
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": first_message},
+            ],
+            max_tokens=20,
+            temperature=0.2,
+        )
+        return _clean_generated_title(generated, first_message)
+    except Exception as error:
+        logger.warning("Conversation title generation failed, using fallback: %s", str(error))
+        return _fallback_title_from_message(first_message)

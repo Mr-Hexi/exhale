@@ -14,7 +14,7 @@ export default function EmotionBadge({ emotion, confidence }) {
     <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 font-medium ${config.tone}`}>
       <span>{config.emoji}</span>
       <span>{config.label}</span>
-      <span>{Math.round(confidence * 100)}%</span>
+      {/* <span>{Math.round(confidence * 100)}%</span> */}
     </span>
   );
 }

@@ -2,6 +2,7 @@ import logging
 
 from langchain_core.runnables.config import RunnableConfig
 
+from chat.graph import state
 from chat.graph.state import ChatState
 from chat.models import AIPrompt, ChatMessage
 from chat.services.llm_chat_service import (
@@ -81,20 +82,22 @@ def crisis_check_node(state: ChatState) -> ChatState:
             logger.warning("Crisis keyword detected - user_id=%s", state["user_id"])
         state["emotion"] = "sad"
         state["confidence"] = 1.0
+
+    state["emotion_history"] = ["crisis"] if state["is_crisis"] else []
+    state["stage_history"] = ["crisis"] if state["is_crisis"] else []
     return state
 
 
 def detect_emotion_node(state: ChatState) -> ChatState:
     result = classify_emotion(state["text"])
-    state["emotion"] = result["emotion"]
-    state["confidence"] = result.get("confidence", result.get("emotion_confidence", 1.0))
-    model_stage = (result.get("stage") or "").lower() or None
-    heuristic_stage = _detect_stage(state["text"], state["emotion"])
+    emotion = result["emotion"]
+    stage = _detect_stage(state["text"], emotion)
 
-    if heuristic_stage in {"burnout", "hopelessness"} and model_stage not in {"burnout", "hopelessness"}:
-        state["stage"] = heuristic_stage
-    else:
-        state["stage"] = model_stage or heuristic_stage
+    state["emotion"] = emotion
+    state["confidence"] = result.get("confidence", result.get("emotion_confidence", 1.0))
+    state["stage"] = stage
+    state["emotion_history"] = [emotion]
+    state["stage_history"] = [stage]
     return state
 
 
@@ -120,6 +123,9 @@ def respond_node(state: ChatState, config: RunnableConfig) -> ChatState:
         .only("role", "content")
     )
 
+    emotion_history = state.get("emotion_history") or []
+    stage_history = state.get("stage_history") or []
+
     messages = build_messages(
         current_text=state["text"],
         emotion=state["emotion"] or "sad",
@@ -132,6 +138,8 @@ def respond_node(state: ChatState, config: RunnableConfig) -> ChatState:
         user_age=state.get("user_age"),
         user_topics=state.get("user_topics"),
         journal_context=state.get("journal_context"),
+        emotion_history=emotion_history,
+        stage_history=stage_history,
     )
 
     stream_queue = config.get("configurable", {}).get("stream_queue")

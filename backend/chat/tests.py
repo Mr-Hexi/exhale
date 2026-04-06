@@ -1,7 +1,13 @@
 from django.test import SimpleTestCase
+from unittest.mock import patch
 
 from chat.graph.nodes import _detect_stage
-from chat.services.llm_chat_service import enforce_crisis_safety, is_existential_question
+from chat.services.llm_chat_service import (
+    _clean_generated_title,
+    enforce_crisis_safety,
+    generate_conversation_title,
+    is_existential_question,
+)
 
 
 class PromptRuleHelpersTests(SimpleTestCase):
@@ -35,3 +41,15 @@ class StageDetectionTests(SimpleTestCase):
         heuristic_stage = _detect_stage("Yeah, and even small tasks feel heavy lately.", emotion="sad")
         final_stage = heuristic_stage if heuristic_stage in {"burnout", "hopelessness"} and model_stage not in {"burnout", "hopelessness"} else model_stage
         self.assertEqual(final_stage, "burnout")
+
+
+class ConversationTitleTests(SimpleTestCase):
+    def test_clean_generated_title_strips_prefix_and_quotes(self):
+        title = _clean_generated_title('Title: "Work stress and sleep"', "I cannot sleep due to work stress")
+        self.assertEqual(title, "Work stress and sleep")
+
+    @patch("chat.services.llm_chat_service.get_completion", side_effect=Exception("API down"))
+    def test_generate_conversation_title_uses_fallback_on_failure(self, _mock_completion):
+        title = generate_conversation_title("I feel anxious before meetings at work")
+        self.assertTrue(title)
+        self.assertNotEqual(title, "New Chat")

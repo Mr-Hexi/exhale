@@ -6,6 +6,7 @@ from chat.models import Conversation, ChatMessage
 from chat.serializers import ConversationSerializer, ChatMessageSerializer, SendMessageSerializer
 from chat.exceptions import LLMAPIError
 from chat.graph import chat_graph
+from chat.services.llm_chat_service import generate_conversation_title
 from mood.models import MoodLog
 import queue
 import threading
@@ -51,23 +52,26 @@ class SendMessageView(APIView):
 
             def bg_thread():
                 try:
+                    is_first_turn = not ChatMessage.objects.filter(conversation=conversation).exists()
                     topics_list = [t.name for t in request.user.topics.all()] if hasattr(request.user, "topics") else []
 
+                    input_state = {
+                        "text": content,
+                        "emotion": None,
+                        "stage": None,
+                        "confidence": None,
+                        "context": [],
+                        "ai_response": None,
+                        "conversation_id": conversation.id,
+                        "user_id": request.user.id,
+                        "user_nickname": getattr(request.user, "nickname", None),
+                        "user_age": getattr(request.user, "age_range", None),
+                        "user_topics": topics_list,
+                        "journal_context": conversation.journal_context,
+                    }
+
                     result = chat_graph.invoke(
-                        {
-                            "text": content,
-                            "emotion": None,
-                            "stage": None,
-                            "confidence": None,
-                            "context": [],
-                            "ai_response": None,
-                            "conversation_id": conversation.id,
-                            "user_id": request.user.id,
-                            "user_nickname": getattr(request.user, "nickname", None),
-                            "user_age": getattr(request.user, "age_range", None),
-                            "user_topics": topics_list,
-                            "journal_context": conversation.journal_context,
-                        },
+                        input_state,
                         config={"configurable": {"thread_id": str(conversation.id), "stream_queue": q}},
                     )
 
@@ -90,6 +94,10 @@ class SendMessageView(APIView):
                         content=result["ai_response"],
                         role="assistant",
                     )
+
+                    if is_first_turn and (conversation.title or "").strip().lower() == "new chat":
+                        conversation.title = generate_conversation_title(content)
+                        conversation.save(update_fields=["title"])
 
                     MoodLog.objects.create(
                         user=request.user,
@@ -114,6 +122,7 @@ class SendMessageView(APIView):
                                 "user_message": ChatMessageSerializer(user_msg).data,
                                 "ai_message": ChatMessageSerializer(ai_msg).data,
                                 "is_crisis": is_crisis,
+                                "conversation": ConversationSerializer(conversation).data,
                             },
                         }
                     )

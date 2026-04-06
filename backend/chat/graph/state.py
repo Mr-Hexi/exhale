@@ -1,4 +1,5 @@
-from typing import TypedDict
+import operator
+from typing import Annotated, TypedDict
 
 
 class ChatState(TypedDict):
@@ -16,3 +17,5 @@ class ChatState(TypedDict):
     user_age: str | None
     user_topics: list[str] | None
     journal_context: str | None
+    emotion_history: Annotated[list[str], operator.add]
+    stage_history: Annotated[list[str], operator.add]

@@ -30,11 +30,11 @@ export default function InputBar({ onSend, isLoading }) {
   return (
     <div className="wa-input-bar">
       {/* Attachment / emoji placeholder */}
-      <button className="wa-icon-btn" aria-label="Add attachment" title="Add attachment">
+      {/* <button className="wa-icon-btn" aria-label="Add attachment" title="Add attachment">
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
           <path d="M10 2v16M2 10h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
         </svg>
-      </button>
+      </button> */}
 
       <div className="wa-input-wrap">
         <textarea
