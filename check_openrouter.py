@@ -7,7 +7,7 @@
 # import sys
 
 # # ── Config — paste your key here or set OPENROUTER_API_KEY in env ──
-# API_KEY = os.getenv("OPENROUTER_API_KEY", "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")
+# API_KEY = os.getenv("OPENROUTER_API_KEY", "YOUR_OPENROUTER_API_KEY")
 # MODELS_TO_TEST = [
 #     "qwen/qwen3-coder:free",
 #     "meta-llama/llama-3.1-8b-instruct:free",
@@ -104,32 +104,31 @@
 
 
 import os
+
 from openai import OpenAI
 
-# 1. Set environment variable or use the key directly (ensure security best practices)
-# It is recommended to use an environment file (.env) for security
-# os.environ["OPENROUTER_API_KEY"] = "YOUR_API_KEY" 
 
-# 2. Initialize the client, pointing the base_url to OpenRouter
+api_key = os.getenv("OPENROUTER_API_KEY")
+if not api_key:
+    raise RuntimeError("Set OPENROUTER_API_KEY before running this script.")
+
+# Initialize the client using the environment variable instead of a hardcoded secret.
 client = OpenAI(
-    api_key="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",
+    api_key=api_key,
     base_url="https://openrouter.ai/api/v1",
     # Optional headers for rankings on the OpenRouter site:
     # default_headers={
-    #     "HTTP-Referer": "https://your-app-url.com", # Replaced with your site's URL
-    #     "X-Title": "Your App Name", # Replaced with your app's name
+    #     "HTTP-Referer": "https://your-app-url.com",
+    #     "X-Title": "Your App Name",
     # },
 )
 
-# 3. Make a chat completions request
-# Specify the model you want to use from the [OpenRouter model list](https://openrouter.ai/models)
 response = client.chat.completions.create(
-    model="stepfun/step-3.5-flash:free",  # Example model; check the list for other options
+    model="stepfun/step-3.5-flash:free",
     messages=[
         {"role": "user", "content": "What is the easiest way to use OpenRouter with the OpenAI library?"}
     ],
     temperature=0.7,
 )
 
-# 4. Print the response
 print(response.choices[0].message.content)

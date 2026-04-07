@@ -19,6 +19,8 @@ PROJECT_CONTEXT_FOR_INTERVIEW.md
 backend/.env
 backend/logs/*.log
 backend/emotion/ml/model.pkl
+check_openrouter.py
+
 
 # Frontend
 frontend/node_modules/
