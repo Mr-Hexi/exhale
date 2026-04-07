@@ -236,6 +236,166 @@ exhale/
 
 ---
 
+## Database ER Diagram
+
+<style>
+#erd { padding: 1rem 0; }
+#erd svg { max-width: 100%; }
+</style>
+<div id="erd"></div>
+<script type="module">
+import mermaid from 'https://esm.sh/mermaid@11/dist/mermaid.esm.min.mjs';
+const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+await document.fonts.ready;
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'base',
+  fontFamily: '"Anthropic Sans", sans-serif',
+  themeVariables: {
+    darkMode: dark,
+    fontSize: '13px',
+    fontFamily: '"Anthropic Sans", sans-serif',
+    lineColor: dark ? '#9c9a92' : '#73726c',
+    textColor: dark ? '#c2c0b6' : '#3d3d3a',
+    primaryColor: dark ? '#2a3a2a' : '#e1f5ee',
+    primaryBorderColor: dark ? '#1d9e75' : '#0f6e56',
+    primaryTextColor: dark ? '#9fe1cb' : '#085041',
+    secondaryColor: dark ? '#2a2a3a' : '#eeedfe',
+    secondaryBorderColor: dark ? '#7f77dd' : '#534ab7',
+    secondaryTextColor: dark ? '#afa9ec' : '#3c3489',
+    tertiaryColor: dark ? '#3a2a2a' : '#faece7',
+    tertiaryBorderColor: dark ? '#d85a30' : '#993c1d',
+    tertiaryTextColor: dark ? '#f09975' : '#4a1b0c',
+    noteBkgColor: dark ? '#3a3420' : '#faeeda',
+    noteTextColor: dark ? '#fac775' : '#633806',
+    edgeLabelBackground: dark ? '#2c2c2a' : '#f1efe8',
+    attributeBackgroundColorEven: dark ? '#1e2e1e' : '#f0faf5',
+    attributeBackgroundColorOdd: dark ? '#252525' : '#ffffff',
+  },
+  er: {
+    diagramPadding: 24,
+    layoutDirection: 'TB',
+    minEntityWidth: 140,
+    minEntityHeight: 40,
+    entityPadding: 14,
+    useMaxWidth: true,
+  }
+});
+
+const diagram = `erDiagram
+    USER {
+        bigint id PK
+        string username UK
+        string email UK
+        string nickname
+        string age_range
+        datetime date_joined
+    }
+    TOPIC {
+        bigint id PK
+        string name UK
+        string slug UK
+    }
+    USER_TOPIC {
+        bigint id PK
+        bigint user_id FK
+        bigint topic_id FK
+    }
+    JOURNAL_ENTRY {
+        bigint id PK
+        bigint user_id FK
+        text content
+        string emotion
+        text ai_insight
+        datetime created_at
+    }
+    CONVERSATION {
+        bigint id PK
+        bigint user_id FK
+        string title
+        text journal_context
+        datetime created_at
+    }
+    CHAT_MESSAGE {
+        bigint id PK
+        bigint user_id FK
+        bigint conversation_id FK
+        text content
+        string role
+        string emotion
+        float emotion_confidence
+        datetime timestamp
+    }
+    AI_PROMPT {
+        bigint id PK
+        string name
+        string emotion
+        text content
+        datetime updated_at
+    }
+    MOOD_LOG {
+        bigint id PK
+        bigint user_id FK
+        string emotion
+        float confidence
+        string source
+        datetime logged_at
+    }
+    MOOD_INSIGHT_CACHE {
+        bigint id PK
+        bigint user_id UK
+        text insight_text
+        datetime generated_at
+    }
+    KNOWLEDGE_CHUNK {
+        bigint id PK
+        text content
+        string category
+        string emotion_tag
+        vector embedding
+        datetime created_at
+    }
+
+    USER ||--o{ JOURNAL_ENTRY : writes
+    USER ||--o{ CONVERSATION : starts
+    USER ||--o{ CHAT_MESSAGE : sends
+    USER ||--o{ MOOD_LOG : generates
+    USER ||--o| MOOD_INSIGHT_CACHE : has
+    USER ||--o{ USER_TOPIC : has
+    TOPIC ||--o{ USER_TOPIC : tagged_in
+    CONVERSATION ||--o{ CHAT_MESSAGE : contains
+`;
+
+const { svg } = await mermaid.render('erd-svg', diagram);
+document.getElementById('erd').innerHTML = svg;
+
+document.querySelectorAll('#erd svg .node').forEach(node => {
+  const firstPath = node.querySelector('path[d]');
+  if (!firstPath) return;
+  const d = firstPath.getAttribute('d');
+  const nums = d.match(/-?[\\d.]+/g)?.map(Number);
+  if (!nums || nums.length < 8) return;
+  const xs = [nums[0], nums[2], nums[4], nums[6]];
+  const ys = [nums[1], nums[3], nums[5], nums[7]];
+  const x = Math.min(...xs), y = Math.min(...ys);
+  const w = Math.max(...xs) - x, h = Math.max(...ys) - y;
+  const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  rect.setAttribute('x', x); rect.setAttribute('y', y);
+  rect.setAttribute('width', w); rect.setAttribute('height', h);
+  rect.setAttribute('rx', '8');
+  for (const a of ['fill', 'stroke', 'stroke-width', 'class', 'style']) {
+    if (firstPath.hasAttribute(a)) rect.setAttribute(a, firstPath.getAttribute(a));
+  }
+  firstPath.replaceWith(rect);
+});
+
+document.querySelectorAll('#erd svg .row-rect-odd path, #erd svg .row-rect-even path').forEach(p => {
+  p.setAttribute('stroke', 'none');
+});
+</script>
+
+---
+
 ## API Reference
 
 ### Auth (`/api/auth/`)
