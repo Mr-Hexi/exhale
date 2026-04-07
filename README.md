@@ -18,7 +18,7 @@ A full-stack AI-powered emotional support platform that detects your emotions, r
 ## Screenshots
 
 ### Landing Page
-![Landing Page](https://raw.githubusercontent.com/Mr-Hexi/exhale/main/docs/screenshots/hero.png)
+![Landing Page](https://raw.githubusercontent.com/Mr-Hexi/exhale/main/docs/screenshots/landing.png)
 > *Full-width glassmorphic design with the core tagline, live chat preview, emotion cards, and safety section.*
 
 ---
