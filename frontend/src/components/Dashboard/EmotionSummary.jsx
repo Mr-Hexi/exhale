@@ -23,7 +23,7 @@ export default function EmotionSummary({ stats }) {
   return (
     <div className="ui-card min-h-[320px]">
       <p className="ui-kicker">Emotion Breakdown</p>
-      <h2 className="ui-section-title">How your recent check-ins are distributed</h2>
+      <h2 className="ui-section-title">How your total mood history is distributed</h2>
 
       <div className="mt-6 space-y-4">
         {displayStats
