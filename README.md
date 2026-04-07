@@ -325,8 +325,6 @@ erDiagram
     CONVERSATION ||--o{ CHAT_MESSAGE : contains
 ```
 
-For a standalone ERD doc, see [docs/er-diagram.md](docs/er-diagram.md).
-
 ---
 
 ## API Reference
@@ -457,23 +455,6 @@ Open [http://localhost:5173](http://localhost:5173) to see the landing page.
 - JWT tokens stored in `localStorage`; silent refresh on 401 with automatic redirect on expiry.
 - All `.env` files are gitignored — secrets never committed.
 - All API queries scope records by `request.user` — no cross-user data access.
-
----
-
-## Development Status
-
-All core phases are complete:
-
-| Phase | Description | Status |
-|-------|-------------|--------|
-| 1 | Django scaffold, PostgreSQL, JWT auth, React+Vite | Done |
-| 2 | Emotion ML model + LLM fallback + crisis detection | Done |
-| 3 | LangGraph chat pipeline + RAG knowledge base + mood auto-logging | Done |
-| 4 | Chat frontend (ChatWindow, MessageBubble, InputBar, ConversationSidebar, TypingIndicator, EmotionBadge) | Done |
-| 5 | Mood + Journal backend (MoodLog, MoodInsightCache, JournalEntry) | Done |
-| 6 | Journal frontend (inline edit, AI insight, expand/collapse, discuss-in-chat) | Done |
-| 7 | Dashboard (MoodChart, EmotionSummary, weekly insight card) | Done |
-| 8 | Onboarding (3-step wizard: nickname → age → topics), personalization in prompts | Done |
 
 ---
 
