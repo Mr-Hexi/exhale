@@ -567,6 +567,8 @@
 }
 
 .wa-conv-name {
+  display: block;
+  width: 100%;
   font-size: 13px;
   font-weight: 600;
   color: var(--wa-text-primary);
@@ -622,6 +624,7 @@
 .wa-conv-time {
   font-size: 10px;
   color: var(--wa-text-soft);
+  white-space: nowrap;
 }
 
 .wa-menu-wrap {
@@ -982,6 +985,21 @@
   margin: 1px 0;
 }
 
+.wa-msg-stack {
+  max-width: 65%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wa-msg-stack.sent {
+  align-items: flex-end;
+}
+
+.wa-msg-stack.recv {
+  align-items: flex-start;
+}
+
 .wa-msg-row.sent {
   justify-content: flex-end;
 }
@@ -1010,7 +1028,7 @@
 }
 
 .wa-bubble {
-  max-width: 65%;
+  max-width: 100%;
   padding: 7px 10px 4px;
   font-size: 13.5px;
   line-height: 1.55;
@@ -1069,6 +1087,32 @@
 .wa-tick {
   font-size: 11px;
   color: var(--wa-brand);
+}
+
+.wa-emotion-row {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.wa-emotion-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: #e7d5c7;
+  border: 1px solid #dbb49a;
+  color: #6f4518;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.wa-emotion-emoji {
+  font-size: 13px;
+  line-height: 1;
 }
 
 /* ── INPUT BAR ── */

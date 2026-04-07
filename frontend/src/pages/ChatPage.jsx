@@ -126,7 +126,7 @@ export default function ChatPage() {
                 </button>
               )}
               <div className="wa-chat-status">
-                {isLoading ? "typingâ€¦" : "online"}
+                {isLoading ? "typing..." : "online"}
               </div>
             </div>
 

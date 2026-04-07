@@ -249,11 +249,11 @@ export function ConversationSidebar({
 
                 <div className="wa-conv-meta">
                   <div className="wa-conv-time">{formatDate(conversation.created_at)}</div>
-                  <div className="wa-menu-wrap">
+                  <div>
                     <button
                       type="button"
                       onClick={(e) => handleMenuToggle(e, conversation.id)}
-                      className={`wa-menu-btn ${menuOpenId === conversation.id ? "open" : ""}`}
+                      // className={`wa-menu-btn ${menuOpenId === conversation.id ? "open" : ""}`}
                       title="Conversation options"
                       aria-label="Conversation options"
                       aria-expanded={menuOpenId === conversation.id}

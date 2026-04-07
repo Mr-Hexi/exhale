@@ -4,6 +4,7 @@ import api from "../api/axios";
 import EmotionSummary from "../components/Dashboard/EmotionSummary";
 import MoodChart from "../components/Dashboard/MoodChart";
 import SkeletonCard from "../components/Dashboard/SkeletonCard";
+import AIInsight from "../components/Journal/AIInsight";
 import Navbar from "../components/shared/Navbar";
 
 const fadeUp = {
@@ -126,19 +127,16 @@ export default function DashboardPage() {
         </motion.section>
 
         <motion.section variants={fadeUp} className="ui-card mt-6">
-          <p className="ui-kicker">Weekly Insight</p>
           <h2 className="ui-section-title mt-1">A short summary of your recent emotional pattern</h2>
 
-          {insightLoading ? (
-            <div className="mt-4 flex items-center gap-2 text-sm text-slate-500">
-              <svg className="h-4 w-4 animate-spin text-[var(--brand-500)]" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-              </svg>
-              Generating your weekly insight...
-            </div>
-          ) : insight ? (
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-700">{insight}</p>
+          {insightLoading || insight ? (
+            <AIInsight
+              insightText={insight}
+              isLoading={insightLoading}
+              title="Weekly Insight"
+              loadingText="Generating your weekly insight..."
+              className="mt-4"
+            />
           ) : (
             <p className="mt-4 text-sm text-slate-500">No insight yet. Keep checking in through chat or journal and this section will update.</p>
           )}

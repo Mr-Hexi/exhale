@@ -9,23 +9,27 @@ export default function MessageBubble({ message }) {
 
   return (
     <div className={`wa-msg-row ${isUser ? "sent" : "recv"}`}>
-      {/* Avatar for AI messages */}
       {!isUser && (
         <div className="wa-msg-av" aria-hidden="true">E</div>
       )}
 
-      <div className={`wa-bubble ${isUser ? "sent" : "recv"}`}>
-        <div className="wa-bubble-content">{message.content}</div>
-        <div className="wa-bubble-foot">
-          {isUser && message.emotion && (
-            <EmotionBadge emotion={message.emotion} confidence={message.emotion_confidence} />
-          )}
-          <span className="wa-btime">{time}</span>
-          {isUser && <span className="wa-tick">✓✓</span>}
+      <div className={`wa-msg-stack ${isUser ? "sent" : "recv"}`}>
+        <div className={`wa-bubble ${isUser ? "sent" : "recv"}`}>
+          <div className="wa-bubble-content">{message.content}</div>
+          <div className="wa-bubble-foot">
+            <span className="wa-btime">{time}</span>
+            {isUser && <span className="wa-tick">✓✓</span>}
+          </div>
         </div>
+
+        {isUser && message.emotion && (
+          <div className="wa-emotion-row">
+            {/* <EmotionBadge emotion={message.emotion} confidence={message.emotion_confidence} /> */}
+            <EmotionBadge emotion={message.emotion}  />
+          </div>
+        )}
       </div>
 
-      {/* Spacer so sent messages align right */}
       {isUser && <div className="wa-msg-av-gap" aria-hidden="true" />}
     </div>
   );
