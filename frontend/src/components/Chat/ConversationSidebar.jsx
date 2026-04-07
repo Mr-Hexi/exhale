@@ -229,6 +229,7 @@ export function ConversationSidebar({
                       onChange={(e) => setEditingValue(e.target.value)}
                       onBlur={() => handleCommitRename(conversation.id)}
                       onKeyDown={(e) => {
+                        e.stopPropagation();
                         if (e.key === "Enter") {
                           e.preventDefault();
                           handleCommitRename(conversation.id);

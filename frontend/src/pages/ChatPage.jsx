@@ -104,6 +104,7 @@ export default function ChatPage() {
                   onChange={(e) => setTitleDraft(e.target.value)}
                   onBlur={commitActiveTitleRename}
                   onKeyDown={(e) => {
+                    e.stopPropagation();
                     if (e.key === "Enter") {
                       e.preventDefault();
                       commitActiveTitleRename();
