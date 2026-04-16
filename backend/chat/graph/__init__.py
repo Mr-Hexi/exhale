@@ -1,4 +1,5 @@
 import os
+import threading
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.postgres import PostgresSaver
 from chat.graph.state import ChatState
@@ -37,9 +38,42 @@ builder.add_edge("respond", END)
 
 # ── Checkpointer (scopes history per conversation thread) ────
 import psycopg
-DATABASE_URL = os.getenv("DATABASE_URL")
-connection = psycopg.connect(DATABASE_URL, autocommit=True)
-checkpointer = PostgresSaver(connection)
-checkpointer.setup()
 
-chat_graph = builder.compile(checkpointer=checkpointer)
+DATABASE_URL = os.getenv("DATABASE_URL")
+_graph_lock = threading.Lock()
+_connection = None
+_checkpointer = None
+chat_graph = None
+
+
+def _build_graph():
+    global _connection, _checkpointer, chat_graph
+
+    if not DATABASE_URL:
+        raise ValueError("DATABASE_URL is not configured")
+
+    if _connection is not None and getattr(_connection, "closed", False):
+        try:
+            _connection.close()
+        except Exception:
+            pass
+        _connection = None
+        _checkpointer = None
+        chat_graph = None
+
+    if chat_graph is not None and _connection is not None:
+        return chat_graph
+
+    _connection = psycopg.connect(DATABASE_URL, autocommit=True)
+    _checkpointer = PostgresSaver(_connection)
+    _checkpointer.setup()
+    chat_graph = builder.compile(checkpointer=_checkpointer)
+    return chat_graph
+
+
+def get_chat_graph():
+    with _graph_lock:
+        return _build_graph()
+
+
+chat_graph = get_chat_graph()

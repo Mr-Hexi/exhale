@@ -5,13 +5,13 @@ from rest_framework.permissions import IsAuthenticated
 from chat.models import Conversation, ChatMessage
 from chat.serializers import ConversationSerializer, ChatMessageSerializer, SendMessageSerializer
 from chat.exceptions import LLMAPIError
-from chat.graph import chat_graph
 from chat.services.llm_chat_service import generate_conversation_title
 from mood.models import MoodLog
 import queue
 import threading
 import json
 from django.http import StreamingHttpResponse
+from django.db import close_old_connections, OperationalError, InterfaceError
 
 logger = logging.getLogger("exhale")
 
@@ -47,13 +47,21 @@ class SendMessageView(APIView):
                 return Response({"error": "Conversation not found."}, status=404)
 
             content = serializer.validated_data["content"]
+            user_id = request.user.id
+            conversation_pk = conversation.id
 
             q = queue.Queue()
 
             def bg_thread():
                 try:
-                    is_first_turn = not ChatMessage.objects.filter(conversation=conversation).exists()
-                    topics_list = [t.name for t in request.user.topics.all()] if hasattr(request.user, "topics") else []
+                    close_old_connections()
+                    from users.models import User
+                    from chat.graph import get_chat_graph
+
+                    user = User.objects.get(id=user_id)
+                    convo = Conversation.objects.get(id=conversation_pk, user_id=user_id)
+                    is_first_turn = not ChatMessage.objects.filter(conversation_id=conversation_pk).exists()
+                    topics_list = [t.name for t in user.topics.all()] if hasattr(user, "topics") else []
 
                     input_state = {
                         "text": content,
@@ -62,26 +70,34 @@ class SendMessageView(APIView):
                         "confidence": None,
                         "context": [],
                         "ai_response": None,
-                        "conversation_id": conversation.id,
-                        "user_id": request.user.id,
-                        "user_nickname": getattr(request.user, "nickname", None),
-                        "user_age": getattr(request.user, "age_range", None),
+                        "conversation_id": conversation_pk,
+                        "user_id": user_id,
+                        "user_nickname": getattr(user, "nickname", None),
+                        "user_age": getattr(user, "age_range", None),
                         "user_topics": topics_list,
-                        "journal_context": conversation.journal_context,
+                        "journal_context": convo.journal_context,
                     }
 
-                    result = chat_graph.invoke(
-                        input_state,
-                        config={"configurable": {"thread_id": str(conversation.id), "stream_queue": q}},
-                    )
+                    graph = get_chat_graph()
+                    try:
+                        result = graph.invoke(
+                            input_state,
+                            config={"configurable": {"thread_id": str(conversation_pk), "stream_queue": q}},
+                        )
+                    except (OperationalError, InterfaceError):
+                        close_old_connections()
+                        result = get_chat_graph().invoke(
+                            input_state,
+                            config={"configurable": {"thread_id": str(conversation_pk), "stream_queue": q}},
+                        )
 
                     emotion = result["emotion"]
                     confidence = result["confidence"]
                     is_crisis = result["is_crisis"]
 
                     user_msg = ChatMessage.objects.create(
-                        user=request.user,
-                        conversation=conversation,
+                        user=user,
+                        conversation=convo,
                         content=content,
                         role="user",
                         emotion=emotion,
@@ -89,18 +105,18 @@ class SendMessageView(APIView):
                     )
 
                     ai_msg = ChatMessage.objects.create(
-                        user=request.user,
-                        conversation=conversation,
+                        user=user,
+                        conversation=convo,
                         content=result["ai_response"],
                         role="assistant",
                     )
 
-                    if is_first_turn and (conversation.title or "").strip().lower() == "new chat":
-                        conversation.title = generate_conversation_title(content)
-                        conversation.save(update_fields=["title"])
+                    if is_first_turn and (convo.title or "").strip().lower() == "new chat":
+                        convo.title = generate_conversation_title(content)
+                        convo.save(update_fields=["title"])
 
                     MoodLog.objects.create(
-                        user=request.user,
+                        user=user,
                         emotion=emotion,
                         confidence=confidence,
                         source="chat",
@@ -108,8 +124,8 @@ class SendMessageView(APIView):
 
                     logger.info(
                         "Message sent - user_id=%s conversation_id=%s emotion=%s confidence=%.2f is_crisis=%s",
-                        request.user.id,
-                        conversation.id,
+                        user_id,
+                        conversation_pk,
                         emotion,
                         confidence,
                         is_crisis,
@@ -122,19 +138,21 @@ class SendMessageView(APIView):
                                 "user_message": ChatMessageSerializer(user_msg).data,
                                 "ai_message": ChatMessageSerializer(ai_msg).data,
                                 "is_crisis": is_crisis,
-                                "conversation": ConversationSerializer(conversation).data,
+                                "conversation": ConversationSerializer(convo).data,
                             },
                         }
                     )
 
                 except LLMAPIError as e:
-                    logger.error("LLM API failed - user_id=%s: %s", request.user.id, str(e))
+                    logger.error("LLM API failed - user_id=%s: %s", user_id, str(e))
                     q.put({"type": "error", "error": "AI service temporarily unavailable."})
                 except Exception as e:
-                    logger.error("Unexpected error in bg_thread - user_id=%s: %s", request.user.id, str(e))
+                    logger.error("Unexpected error in bg_thread - user_id=%s: %s", user_id, str(e))
                     q.put({"type": "error", "error": "Something went wrong. Please try again."})
+                finally:
+                    close_old_connections()
 
-            threading.Thread(target=bg_thread).start()
+            threading.Thread(target=bg_thread, daemon=True).start()
 
             def generate():
                 while True:
